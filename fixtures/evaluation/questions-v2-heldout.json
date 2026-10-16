@@ -1,0 +1,22 @@
+[
+  {
+    "question_id": "international-shipping-cost",
+    "question": "What is the international shipping fee?",
+    "answerable": false,
+    "gold_evidence": []
+  },
+  {
+    "question_id": "connection-failure-rewrite",
+    "question": "Why does the client fail to connect to the service?",
+    "answerable": true,
+    "gold_evidence": [
+      {
+        "source_id": "errors",
+        "source_version": "v1",
+        "start_line": 2,
+        "end_line": 2,
+        "quote": "E104 means that the client connection timed out while contacting the service."
+      }
+    ]
+  }
+]

@@ -1,0 +1,3 @@
+Error reference
+E104 means that the client connection timed out while contacting the service.
+Retry the request after checking network reachability.

@@ -1,0 +1,12 @@
+[
+  {"id":"exact-1", "query":"E104", "group":"exact", "gold":["e104"], "split":"heldout"},
+  {"id":"exact-2", "query":"E401", "group":"exact", "gold":["e401"], "split":"dev"},
+  {"id":"semantic-1", "query":"How long do buyers have to get their money back?", "group":"semantic", "gold":["refund"], "split":"heldout"},
+  {"id":"semantic-2", "query":"What happens when the network server never answers?", "group":"semantic", "gold":["e104"], "split":"dev"},
+  {"id":"negation-1", "query":"Can I get a refund for a consumed subscription?", "group":"negation", "gold":["excluded"], "split":"heldout"},
+  {"id":"manual-1", "query":"Which version can a free plan install?", "group":"manual", "gold":["appendix","install"], "split":"heldout"},
+  {"id":"zh-1", "query":"连接超时怎么办", "group":"chinese", "gold":["zh-timeout"], "split":"heldout"},
+  {"id":"zh-2", "query":"退款期限", "group":"chinese", "gold":["zh-policy"], "split":"dev"},
+  {"id":"none-1", "query":"What is the international shipping price in dollars?", "group":"unanswerable", "gold":[], "split":"heldout"},
+  {"id":"stock-1", "query":"What is the current inventory quantity?", "group":"realtime", "gold":[], "split":"heldout"}
+]

@@ -1,0 +1,12 @@
+[
+  {
+    "source_id": "errors",
+    "source_version": "v1",
+    "path": "sources/errors-v1.txt"
+  },
+  {
+    "source_id": "policy",
+    "source_version": "v1",
+    "path": "sources/policy-v1.txt"
+  }
+]

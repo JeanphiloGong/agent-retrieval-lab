@@ -1,0 +1,2 @@
+Production deployment window is 02:00 UTC.
+Deployments require two healthy replicas.

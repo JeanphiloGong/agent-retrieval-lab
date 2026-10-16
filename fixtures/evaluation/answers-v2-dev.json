@@ -1,0 +1,30 @@
+[
+  {
+    "question_id": "error-meaning",
+    "answerable": true,
+    "answer": "E104 means that the client connection timed out.",
+    "cited_evidence": [
+      {
+        "source_id": "errors",
+        "source_version": "v1",
+        "start_line": 2,
+        "end_line": 2,
+        "quote": "E104 means that the client connection timed out while contacting the service."
+      }
+    ]
+  },
+  {
+    "question_id": "refund-window",
+    "answerable": true,
+    "answer": "A customer can request a refund within seven days of purchase.",
+    "cited_evidence": [
+      {
+        "source_id": "policy",
+        "source_version": "v1",
+        "start_line": 2,
+        "end_line": 2,
+        "quote": "Customers may request a refund within seven days of purchase."
+      }
+    ]
+  }
+]

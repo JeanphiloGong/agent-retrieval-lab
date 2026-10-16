@@ -1,0 +1,12 @@
+[
+  {
+    "question_id": "refund-window",
+    "question": "What is the refund period in the Refunds section?",
+    "evidence_terms": ["Refunds", "seven days"]
+  },
+  {
+    "question_id": "deployment-window",
+    "question": "When is the deployment window under Deployment / Limits?",
+    "evidence_terms": ["Deployment", "Limits", "02:00 UTC"]
+  }
+]

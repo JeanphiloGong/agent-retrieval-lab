@@ -1,0 +1,23 @@
+[
+  {
+    "question_id": "install-free-plan",
+    "category": "single_document",
+    "question": "Can I deploy version 3 on Linux with the free plan?",
+    "queries": ["Install Linux", "free plan limits"],
+    "gold_evidence": [
+      {"source_id": "manual", "source_version": "v1", "section_id": "s2"},
+      {"source_id": "manual", "source_version": "v1", "section_id": "s4"}
+    ]
+  },
+  {
+    "question_id": "install-maintenance",
+    "category": "multi_document",
+    "question": "What installation restrictions and support deadline apply to version 3?",
+    "queries": ["Install Linux", "free plan limits", "maintenance support"],
+    "gold_evidence": [
+      {"source_id": "manual", "source_version": "v1", "section_id": "s2"},
+      {"source_id": "manual", "source_version": "v1", "section_id": "s4"},
+      {"source_id": "release", "source_version": "v1", "section_id": "s2"}
+    ]
+  }
+]

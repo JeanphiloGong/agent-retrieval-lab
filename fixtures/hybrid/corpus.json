@@ -1,0 +1,12 @@
+[
+  {"id":"e104", "text":"E104 means connection timeout. Retry opening the network socket after checking the server.", "topic":"exact"},
+  {"id":"e401", "text":"E401 means invalid credentials. Rotate the API key after confirming the account identity.", "topic":"exact"},
+  {"id":"refund", "text":"Customers may request a refund within seven days after purchase. Reimbursement takes three business days.", "topic":"semantic"},
+  {"id":"excluded", "text":"A refund is not available for consumed subscriptions. This exception overrides the seven-day refund window.", "topic":"negation"},
+  {"id":"shipping", "text":"International shipping costs are not documented. Contact the logistics team for a quote.", "topic":"unanswerable"},
+  {"id":"install", "text":"Install version 3 for the enterprise plan. See the free plan limits in the appendix.", "topic":"manual"},
+  {"id":"appendix", "text":"The free plan does not support version 3. Use version 2 when running without an enterprise license.", "topic":"manual"},
+  {"id":"zh-timeout", "text":"连接超时表示服务器未在截止时间内响应。请检查网络后重试。", "topic":"chinese"},
+  {"id":"zh-policy", "text":"退款期限为购买后七天。已使用的订阅不支持退款。", "topic":"chinese"},
+  {"id":"stock", "text":"Historical stock was twelve units. Current inventory must be queried from the live database.", "topic":"realtime"}
+]

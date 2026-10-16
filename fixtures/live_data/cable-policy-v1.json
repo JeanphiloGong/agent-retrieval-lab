@@ -1,0 +1,9 @@
+{
+  "source_id": "stock-policy",
+  "source_version": "v1",
+  "category": "cable",
+  "minimum_stock": 10,
+  "quote": "Keep at least 10 cable units available.",
+  "effective_from": "2026-10-01T00:00:00+00:00",
+  "effective_until": "2026-11-01T00:00:00+00:00"
+}
