@@ -1,7 +1,7 @@
 # 索引更新与运行成本 v0：批量索引
 
-状态：verified。SQLite 索引、模型/分块版本检查和重启测试已通过。
-重放命令：`uv run python -c "from labs.operations.checkpoints.v0.index import Index; print(Index)"`。
+参考状态：verified。仅表示预写参考材料的验证记录；你的实现进度单独记录在 [个人进度](../../../docs/progress.md)。参考代码位于 `reference/labs/`，重放命令见 [参考区](../../../reference/README.md)；本版手写目标仍是 `labs/`，按 [正文](tutorial.md) 构建。
+重放命令：`PYTHONPATH=reference uv run python -P -c "from labs.operations.checkpoints.v0.index import Index; print(Index)"`。
 
 ## 本版写作任务
 
@@ -10,7 +10,7 @@
 - 当前缺口：重启后必须全部重新生成向量。
 - 必要改变：保存可重建索引及来源版本清单。
 - 验收及验证：重启可查询；模型或分块版本变化被识别。
-- 正文目标：本目录 `tutorial.md`；代码目标：`labs/operations/`；验证目标：`tests/operations/`。
+- 正文目标：本目录 `tutorial.md`；代码目标：`labs/operations/`；验证目标：`tests/test_operations.py`。
 - 代码角色：checkpoint，从外部输入出发建立首个可运行单元。
 - 预计范围：一个版本；若实现需要多个独立机制，应先拆为多个写作任务。
 - 提交策略：规划阶段不提交检查点；正文和实现通过复验后再保存版本 commit。

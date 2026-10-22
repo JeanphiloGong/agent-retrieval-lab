@@ -1,5 +1,7 @@
 # 文档处理与证据定位 v3：稳定引用
 
+保留自己已验收的 v0–v2 模块与空的包文件，由你创建 `labs/documents/v3_citations.py`。先写完完整模块，再运行后面的引用实验；参考代码只用于对照。
+
 ## 读者目标
 
 回答“退款期限是七天”时，引用不能只保存一个会变化的行号。它必须说明 `handbook@v1`，并确认该范围的内容仍是生成答案时看到的内容。
@@ -12,28 +14,9 @@
 
 `make_citation` 根据结构化文档的 1-based 行范围生成 `Citation`，保存 `source_id`、`source_version`、范围和引用文本的 SHA-256。`VersionedDocumentStore` 按 `(source_id, source_version)` 保存完整文档：同一版本不能被不同正文覆盖；新版本用新键保存。
 
-```python
-from pathlib import Path
-from labs.documents.v0_extract import extract_document
-from labs.documents.v1_structure import structure_document
-from labs.documents.v3_citations import VersionedDocumentStore, cite_block
-
-def load(name, version):
-    raw = extract_document(Path("fixtures/documents") / name, "handbook", version)
-    return structure_document(raw)
-
-document = load("handbook-v1.md", "v1")
-block = next(block for block in document.blocks if "seven days" in block.text)
-citation = cite_block(document, block)
-store = VersionedDocumentStore()
-store.add(document)
-print(citation)
-print(store.resolve(citation))
-```
-
 解析时先查精确版本，再重新计算该行范围的摘要。版本不存在抛出 `CitationUnavailable`；摘要不一致抛出 `CitationMismatch`。这两个失败状态不能被“尽量返回附近文本”吞掉。
 
-## 第二步：冻结完整检查点
+## 第二步：写出完整模块
 
 下面是 `labs/documents/v3_citations.py` 的完整 checkpoint。它只包含上面已经解释的机制；保留前一版本模块并创建本版模块，不需要将分散片段拼接。
 
@@ -120,13 +103,42 @@ class VersionedDocumentStore:
 
 
 
-完整实现位于 [labs/documents/v3_citations.py](../../../labs/documents/v3_citations.py)。运行：
+写完后，从仓库根目录生成并解析旧版本引用：
 
 ```bash
-uv run pytest -q tests/documents/test_v3_citations.py
+uv run python - <<'PY'
+from pathlib import Path
+from labs.documents.v0_extract import extract_document
+from labs.documents.v1_structure import structure_document
+from labs.documents.v3_citations import VersionedDocumentStore, cite_block
+
+def load(name, version):
+    raw = extract_document(Path("fixtures/documents") / name, "handbook", version)
+    return structure_document(raw)
+
+document = load("handbook-v1.md", "v1")
+block = next(block for block in document.blocks if "seven days" in block.text)
+citation = cite_block(document, block)
+store = VersionedDocumentStore()
+store.add(document)
+print(citation)
+print(store.resolve(citation))
+PY
+```
+
+参考答案位于 [reference/labs/documents/v3_citations.py](../../../reference/labs/documents/v3_citations.py)。只验收本版：
+
+```bash
+uv run python -m pytest -q tests/documents/test_v3_citations.py
 ```
 
 测试覆盖旧引用解析、新版本不重定向、删除版本显式不可用、同版本拒绝覆盖，以及相同行范围的内容变化检测。
+
+可选的参考重放使用以下命令；它不验收自己的 `labs/`：
+
+```bash
+PYTHONPATH=reference uv run python -P -m pytest --import-mode=importlib -q tests/documents/test_v3_citations.py
+```
 
 ## 专题检查点
 
@@ -139,10 +151,10 @@ v0 extract_document
   -> v3 make_citation / VersionedDocumentStore.resolve
 ```
 
-全量运行：
+完成四个版本后，对自己的实现全量运行：
 
 ```bash
-uv run pytest -q tests/documents
+uv run python -m pytest -q tests/documents
 ```
 
-这条链已经覆盖本专题的核心边界：来源和版本保留、标题与表格结构、固定预算下的分块，以及旧版本证据不会静默指向新内容。实际运行结果：23 passed。PDF 使用 pypdf 的文字提取；真正的 OCR、复杂版式、页内坐标、多语言分词和跨文档证据组合仍属于后续专题。
+预期为 23 passed；自己的实验与验收全部通过后，才提交本专题的学习检查点。这条链覆盖来源和版本保留、标题与表格结构、固定预算下的分块，以及旧版本证据不会静默指向新内容。PDF 使用 pypdf 的文字提取；真正的 OCR、复杂版式、页内坐标、多语言分词和跨文档证据组合仍属于后续专题。

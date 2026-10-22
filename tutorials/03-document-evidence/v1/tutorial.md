@@ -1,5 +1,7 @@
 # 文档处理与证据定位 v1：结构保留
 
+从自己已通过 v0 验收的 `labs/documents/v0_extract.py` 继续，保留空的包文件。本版手写 `labs/documents/v1_structure.py`；写完完整模块后再运行调用示例。不要把参考目录复制成自己的完成记录。
+
 ## 读者目标
 
 v0 能读到正文，但“Limits 下的部署窗口”和另一个同名标题下的内容仍是一串行。检索结果需要知道段落属于哪个标题，并且需要把整张表作为一个证据边界。
@@ -14,18 +16,7 @@ v0 能读到正文，但“Limits 下的部署窗口”和另一个同名标题�
 
 标题解析会按层级截断旧路径；连续的 `|` 行合并成一个表格块；空行提交当前段落。解析过程不改写来源正文，所以行号仍可回到原文。
 
-```python
-from pathlib import Path
-from labs.documents.v0_extract import extract_document
-from labs.documents.v1_structure import structure_document
-
-raw = extract_document(Path("fixtures/documents/handbook-v1.md"), "handbook", "v1")
-structured = structure_document(raw)
-for block in structured.blocks:
-    print(block.kind, block.start_line, block.heading_path, repr(block.text))
-```
-
-## 第二步：冻结完整检查点
+## 第二步：写出完整模块
 
 下面是 `labs/documents/v1_structure.py` 的完整 checkpoint。它只包含上面已经解释的机制；保留前一版本模块并创建本版模块，不需要将分散片段拼接。
 
@@ -144,14 +135,35 @@ def structure_document(document: ExtractedDocument) -> StructuredDocument:
 
 
 
-完整实现位于 [labs/documents/v1_structure.py](../../../labs/documents/v1_structure.py)。例如第二个 `Refunds` 仍有自己的行号，`Limits` 段落的路径是 `("Support Handbook", "Deployment", "Limits")`，表格是一个 `table` 块。运行：
+写完后，从仓库根目录运行：
 
 ```bash
-uv run pytest -q tests/documents/test_v1_structure.py
+uv run python - <<'PY'
+from pathlib import Path
+from labs.documents.v0_extract import extract_document
+from labs.documents.v1_structure import structure_document
+
+raw = extract_document(Path("fixtures/documents/handbook-v1.md"), "handbook", "v1")
+structured = structure_document(raw)
+for block in structured.blocks:
+    print(block.kind, block.start_line, block.heading_path, repr(block.text))
+PY
+```
+
+参考答案位于 [reference/labs/documents/v1_structure.py](../../../reference/labs/documents/v1_structure.py)。例如第二个 `Refunds` 仍有自己的行号，`Limits` 段落的路径是 `("Support Handbook", "Deployment", "Limits")`，表格是一个 `table` 块。只验收本版：
+
+```bash
+uv run python -m pytest -q tests/documents/test_v1_structure.py
 ```
 
 测试覆盖重复标题的位置、表格边界和段落标题上下文。
 
+可选的参考重放使用独立命令，不计为个人学习进度：
+
+```bash
+PYTHONPATH=reference uv run python -P -m pytest --import-mode=importlib -q tests/documents/test_v1_structure.py
+```
+
 ## 冻结与下一步
 
-现在每个证据块都能回到标题和原文范围。仍然不能直接把整篇长文塞进模型上下文；若机械按字符切分，适用条件和结论会落入不同块。下一版本比较固定窗口与保留结构的分块结果。
+自己的调用和普通 pytest 验收通过后，提交 v1 学习检查点。现在每个证据块都能回到标题和原文范围。仍然不能直接把整篇长文塞进模型上下文；若机械按字符切分，适用条件和结论会落入不同块。下一版本继续你的实现，比较固定窗口与保留结构的分块结果。

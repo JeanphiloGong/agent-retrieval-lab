@@ -15,7 +15,7 @@ from .tools import SourceDocument, code_tool, inventory_tool, lexical_tool, read
 
 
 def documents() -> tuple[SourceDocument, ...]:
-    root = Path(__file__).parents[2] / "fixtures" / "agent"
+    root = Path.cwd() / "fixtures" / "agent"
     return (
         SourceDocument("deploy", "v1", (root / "deployment-v1.txt").read_text().rstrip("\n"), ("limits",)),
         SourceDocument("limits", "v1", (root / "limits-v1.txt").read_text().rstrip("\n")),
@@ -37,7 +37,7 @@ def main() -> int:
     connection = open_database()
     try:
         seed(connection, [("SKU_1", "widget", 12)])
-        tools = [search, read_tool(sources), inventory_tool(connection), code_tool(Path(__file__).parents[2] / "fixtures" / "code_search" / "repository", source_version="fixture-v1")]
+        tools = [search, read_tool(sources), inventory_tool(connection), code_tool(Path.cwd() / "fixtures" / "code_search" / "repository", source_version="fixture-v1")]
         if args.single:
             answer = answer_once(args.question, search, {"query": args.question})
         else:

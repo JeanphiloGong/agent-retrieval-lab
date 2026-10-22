@@ -2,6 +2,8 @@
 
 v2 能区分 `connect` 的多个定义，但调用者可能使用 `open_database()`，也可能使用 `obj.connect()`。本版新增 `labs/code_search/symbols.py`，为固定 Python 源树建立静态符号索引，将“已经确认的引用”和“仅是候选或未知的引用”分别返回。
 
+从自己已验收的 v2 继续，保留前三个模块，手写下面的 `symbols.py`，然后运行第 3 节的实验。包的 `__init__.py` 可以继续为空；本篇直接从所属模块导入。
+
 本版直接接入 Jedi 0.19 的静态解析能力。Jedi 会处理词法作用域、导入别名及一部分类型推断，避免自行用短名猜测引用。它读取源码，不执行样例 Python 文件；静态分析仍不能证明任意运行时行为。
 
 ## 1. 建立索引
@@ -18,24 +20,7 @@ v2 能区分 `connect` 的多个定义，但调用者可能使用 `open_database
 
 语法错误保存在 `index.syntax_errors`，以便调用者知道索引覆盖范围不完整。调用者应先检查错误，不能把部分成功索引当作全仓库结论。
 
-## 2. 观察别名导入
-
-```bash
-uv run python - <<'PY'
-from pathlib import Path
-from labs.code_search import SymbolIndex
-
-index = SymbolIndex.build(Path('fixtures/code_search/repository'))
-for symbol in index.find_symbols('connect'):
-    print('definition', symbol.qualified_name, symbol.path, symbol.line)
-for reference in index.references('connect', path='app.py'):
-    target = reference.target.qualified_name if reference.target else None
-    print(reference.line, reference.expression, reference.resolution, target)
-print('syntax errors:', index.syntax_errors)
-PY
-```
-
-在 `app.py` 中，`open_database` 通过 `from database import connect as open_database` 解析到 `database.connect`，状态为 `confirmed`。`obj.connect` 没有对象类型信息，因此保持 `unresolved`。这比把所有 `connect` 文本位置都称作调用者更可靠，也不会把未知对象误指向 `database.Client.connect`。
+## 2. 写出符号索引
 
 将本版新增文件完整写为 `labs/code_search/symbols.py`，代码如下。此前版本的文件保持不变。
 
@@ -210,6 +195,25 @@ class SymbolIndex:
 
 ## 3. 理解确认范围
 
+写完文件后观察别名导入：
+
+```bash
+uv run python - <<'PY'
+from pathlib import Path
+from labs.code_search.symbols import SymbolIndex
+
+index = SymbolIndex.build(Path('fixtures/code_search/repository'))
+for symbol in index.find_symbols('connect'):
+    print('definition', symbol.qualified_name, symbol.path, symbol.line)
+for reference in index.references('connect', path='app.py'):
+    target = reference.target.qualified_name if reference.target else None
+    print(reference.line, reference.expression, reference.resolution, target)
+print('syntax errors:', index.syntax_errors)
+PY
+```
+
+在 `app.py` 中，`open_database` 通过 `from database import connect as open_database` 解析到 `database.connect`，状态为 `confirmed`。`obj.connect` 没有对象类型信息，因此保持 `unresolved`。这比把所有 `connect` 文本位置都称作调用者更可靠，也不会把未知对象误指向 `database.Client.connect`。
+
 `_collect_symbols()` 记录定义及词法嵌套；`_reference_position()` 取名称或属性的定位位置。AST 列号按 UTF-8 字节计数，而 Jedi 按字符计数，所以调用 Jedi 前进行一次边界转换；含中文标识符时两者不能直接混用。Jedi 返回的模块路径、行号和名称共同匹配本索引的定义，库外定义保留为未解析。`references()` 根据确认目标、候选目标和无法解析的同名属性返回相关引用。
 
 这里“确认”只在 Jedi 的静态假设下成立。本版仅把函数与类纳入目标索引，没有索引变量赋值、外部依赖、生成代码和跨语言引用。描述符、猴子补丁、`getattr(obj, name)` 与 `globals()[name]` 这类动态表达式仍可能无法关联到所查询的符号。空结果不证明没有运行时引用。
@@ -222,7 +226,9 @@ class SymbolIndex:
 
 ```python
 from pathlib import Path
-from labs.code_search import SymbolIndex, grep_literal, read_range
+from labs.code_search.grep_search import grep_literal
+from labs.code_search.reader import read_range
+from labs.code_search.symbols import SymbolIndex
 
 root = Path('fixtures/code_search/repository')
 hits = grep_literal(root, '[E104]', glob='**/*.py')
@@ -237,11 +243,18 @@ references = index.references('database.connect')
 
 ## 最终检查点
 
-本专题全部实现文件是 `reader.py`、`grep_search.py`、`ast_search.py`、`symbols.py` 与包导出 `__init__.py`。固定资料在 `fixtures/code_search/repository/`，测试在 `tests/code_search/test_code_search.py`。
+本专题全部实现文件是 `reader.py`、`grep_search.py`、`ast_search.py`、`symbols.py`，以及空的包文件 `__init__.py`。固定资料在 `fixtures/code_search/repository/`，测试在 `tests/code_search/test_code_search.py`。
 
 ```bash
-uv run python -m unittest discover -s tests/code_search -v
+uv run python -m pytest -q tests/code_search/test_code_search.py
 ```
 
-Python 3.12 环境下 10 项测试通过，覆盖安全读取、字面量检索、超时、定义范围、语法错误、导入别名和动态属性的不确定性。这是可信本地、小型 Python 项目的教学检查点；没有验证恶意并发文件系统、百万文件规模、完整 Python 语义或任意语言。后续 07 将把这些能力作为 Agent 的可调用工具，08 再将读取与检索纳入可信身份授权边界。
-完整可重放源码保存在 `labs/code_search/checkpoints/v3/`。将本篇示例的导入改为 `from labs.code_search.checkpoints.v3 import ...`，即可直接运行该版；目录中的每个文件都是完整源码，按 reader、grep_search、ast_search、symbols 的顺序只取本版已有文件即可重建。
+预期为 9 项学习验收通过，覆盖安全读取、字面量检索、超时、定义范围、语法错误、导入别名和动态属性的不确定性。这是可信本地、小型 Python 项目的教学检查点；没有验证恶意并发文件系统、百万文件规模、完整 Python 语义或任意语言。后续 07 将把这些能力作为 Agent 的可调用工具，08 再将读取与检索纳入可信身份授权边界。
+
+完整参考快照位于 `reference/labs/code_search/checkpoints/v3/`。`reference/tests/` 的额外检查只用于维护参考材料；你无需建立快照目录。显式检查全部参考快照的命令是：
+
+```bash
+PYTHONPATH=reference uv run python -P -m pytest --import-mode=importlib -q reference/tests/test_code_search_checkpoints.py
+```
+
+这条参考检查通过不计为个人学习进度；自己的学习检查点使用前一条普通 pytest 命令。

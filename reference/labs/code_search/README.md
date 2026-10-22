@@ -1,4 +1,7 @@
-# Code Search lab
+# Code Search reference
+
+This is supplied reference code. Write your own implementation in the root
+`labs/` directory; replaying these files does not complete a learner checkpoint.
 
 `reader.py` is the v0 workspace boundary; `grep_search.py` adds v1 literal
 search; `ast_search.py` adds v2 definition ranges; `symbols.py` adds the v3
@@ -8,7 +11,7 @@ does not execute the indexed Python source.
 From the repository root:
 
 ```bash
-uv run python -m unittest discover -s tests/code_search -v
+PYTHONPATH=reference uv run python -P -m pytest --import-mode=importlib -q tests/code_search reference/tests/test_code_search_checkpoints.py
 ```
 
 The fixed teaching tree is `fixtures/code_search/repository/`. Its source is

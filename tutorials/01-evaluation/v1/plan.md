@@ -1,6 +1,6 @@
 # 检索基线与评测 v1：关键词基线
 
-状态：verified。实现、教程与标准库 unittest 已完成；复验命令见 [tutorial.md](tutorial.md)。原始范围草案保留如下。
+参考状态：verified。仅表示预写参考材料的验证记录；你的实现进度单独记录在 [个人进度](../../../docs/progress.md)。参考代码位于 `reference/labs/`，重放命令见 [参考区](../../../reference/README.md)；本版手写目标仍是 `labs/`，按 [正文](tutorial.md) 构建。
 
 ## 本版写作任务
 

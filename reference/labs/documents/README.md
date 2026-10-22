@@ -1,5 +1,8 @@
 # Documents checkpoints
 
+These are supplied reference modules. Learners build the corresponding files
+under the root `labs/documents/` directory.
+
 Each version remains a separate runnable module. Later versions import earlier
 versions instead of replacing them, so v0-v3 remain replayable without Git tags.
 
@@ -14,7 +17,7 @@ Run from the repository root:
 
 ```bash
 uv sync --locked
-uv run python -m pytest -q tests/documents
+PYTHONPATH=reference uv run python -P -m pytest --import-mode=importlib -q tests/documents
 ```
 
 Verified on 2026-10-16: 23 passed. PDF fixtures are real, self-generated PDFs;

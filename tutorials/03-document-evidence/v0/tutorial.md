@@ -10,21 +10,11 @@
 
 从仓库根目录运行 `uv sync --locked`。依赖与测试工具来自 `uv.lock`，无需 API 密钥或外部服务。样例是仓库自建数据；`uv run python fixtures/documents/build_pdfs.py` 可以重新生成两个真实 PDF。
 
+创建 `labs/documents/`，并创建空的 `labs/__init__.py` 和 `labs/documents/__init__.py`；已有的包文件保留。你将手写 `labs/documents/v0_extract.py`，写完后再运行本文后面的实验。`reference/labs/documents/` 是参考答案，测试通过不会自动成为你的学习进度。
+
 ## 第一步：从外部文件开始
 
-先看调用方能提供的事实：
-
-```python
-from labs.documents.v0_extract import extract_document
-
-document = extract_document(
-    "fixtures/documents/handbook-v1.md",
-    source_id="handbook",
-    source_version="v1",
-)
-print(document.source_id, document.source_version)
-print(document.text.splitlines()[0])
-```
+调用方提供文件路径、稳定的来源 ID（如 `handbook`）和来源版本（如 `v1`）。本版的返回结果必须保存这三项，不能只返回字符串。
 
 朴素的 `Path.read_text()` 能得到正文，却不能告诉回答者正文来自哪个版本；对扫描 PDF，它还会把“没有提取到文字”误报成成功。
 
@@ -32,23 +22,7 @@ print(document.text.splitlines()[0])
 
 在 `labs/documents/v0_extract.py` 中，`ExtractedDocument` 保存 `source_id`、`source_version`、路径、格式、正文、页文本和提取问题。`extract_document` 是唯一的输入边界：它校验来源元数据和文件存在性，Markdown 使用 UTF-8 读取；PDF 由 `PdfReader` 解析，每页文字各自保存在 `page_text`，空页附加页号明确的 `ocr_required`。空页可能是真空页，也可能是扫描图，所以下游必须检查它，不能断言已经完成 OCR。
 
-运行固定样例：
-
-```bash
-uv run python - <<'PY'
-from pathlib import Path
-from labs.documents.v0_extract import extract_document
-
-root = Path("fixtures/documents")
-for name in ("handbook-v1.md", "notice.pdf", "scanned.pdf"):
-    result = extract_document(root / name, name, "v1")
-    print(name, result.format, repr(result.text), result.needs_ocr)
-PY
-```
-
-你会看到 Markdown 和文字 PDF 有正文，`notice.pdf` 的两页文字通过换页符连接；`scanned.pdf` 的正文为空但 `needs_ocr` 为 `True`。这是一种可处理的失败，而不是静默丢证据。
-
-## 第二步：冻结完整检查点
+## 第三步：写出完整模块
 
 下面是 `labs/documents/v0_extract.py` 的完整 checkpoint。它只包含上面已经解释的机制；从空文件创建此模块，不需要将分散片段拼接。
 
@@ -151,14 +125,36 @@ def extract_document(
 
 
 
-完整实现位于 [labs/documents/v0_extract.py](../../../labs/documents/v0_extract.py)，测试位于 [tests/documents/test_v0_extract.py](../../../tests/documents/test_v0_extract.py)。运行：
+写完 `labs/documents/v0_extract.py` 后，运行固定样例：
 
 ```bash
-uv run pytest -q tests/documents/test_v0_extract.py
+uv run python - <<'PY'
+from pathlib import Path
+from labs.documents.v0_extract import extract_document
+
+root = Path("fixtures/documents")
+for name in ("handbook-v1.md", "notice.pdf", "scanned.pdf"):
+    result = extract_document(root / name, name, "v1")
+    print(name, result.format, repr(result.text), result.needs_ocr)
+PY
 ```
 
-测试覆盖 Markdown 的来源和版本、两页文字 PDF、OCR 页号、未知扩展名、空来源、不存在文件、损坏 PDF 和加密 PDF。实际运行结果：6 passed。扫描识别只说明没有可提取文字，不推测图片里的文本。
+你会看到 Markdown 和文字 PDF 有正文，`notice.pdf` 的两页文字通过换页符连接；`scanned.pdf` 的正文为空但 `needs_ocr` 为 `True`。这是一种可处理的失败，而不是静默丢证据。
+
+参考答案位于 [reference/labs/documents/v0_extract.py](../../../reference/labs/documents/v0_extract.py)，验收测试位于 [tests/documents/test_v0_extract.py](../../../tests/documents/test_v0_extract.py)。只运行本版测试：
+
+```bash
+uv run python -m pytest -q tests/documents/test_v0_extract.py
+```
+
+预期为 6 passed。测试覆盖 Markdown 的来源和版本、两页文字 PDF、OCR 页号、未知扩展名、空来源、不存在文件、损坏 PDF 和加密 PDF。扫描识别只说明没有可提取文字，不推测图片里的文本。
+
+若只想核对参考答案，显式运行以下命令；它不验收你的 `labs/`：
+
+```bash
+PYTHONPATH=reference uv run python -P -m pytest --import-mode=importlib -q tests/documents/test_v0_extract.py
+```
 
 ## 冻结与下一步
 
-现在可以保留“正文来自哪个来源版本”并明确报告 OCR 缺口。它仍然把文档当成平面字符串：当两个 `## Refunds` 标题出现时，回答无法区分它们，表格边界也无法追踪。下一版本在这个检查点上增加标题路径和块的行范围。
+自己的实验与普通 pytest 命令通过后，提交自己的 v0 学习检查点。现在可以保留“正文来自哪个来源版本”并明确报告 OCR 缺口。它仍然把文档当成平面字符串：当两个 `## Refunds` 标题出现时，回答无法区分它们，表格边界也无法追踪。下一版本在你写出的这个检查点上增加标题路径和块的行范围。

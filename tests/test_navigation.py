@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import importlib
 import json
 import unittest
 from pathlib import Path
@@ -126,20 +125,6 @@ class NavigationTests(unittest.TestCase):
             self.assertEqual(report[strategy]["multi_document"]["questions"], 1)
             self.assertEqual(report[strategy]["single_document"]["mean_recall"], 1.0)
             self.assertEqual(report[strategy]["multi_document"]["mean_recall"], 1.0)
-
-    def test_each_saved_checkpoint_replays_its_capability(self):
-        for version in range(4):
-            module = importlib.import_module(f"labs.navigation.checkpoints.v{version}.navigation")
-            sections = module.document_tree(TEXT)
-            self.assertEqual(sections[1].title, "Install")
-            if version >= 1:
-                self.assertEqual(module.find_sections(sections, "free plan")[0].title, "Limits")
-            if version >= 2:
-                self.assertTrue(module.read_range(TEXT, sections[0], max_lines=1).truncated)
-            if version >= 3:
-                self.assertEqual(len(module.combine_evidence({("manual", "v1"): TEXT},
-                                                            ["install", "free plan"])), 2)
-
 
 if __name__ == "__main__":
     unittest.main()

@@ -24,7 +24,7 @@ def quality(ids, gold, k=3):
 
 
 def run(output: Path, *, split: str = "heldout"):
-    root = Path(__file__).resolve().parents[2]
+    root = Path.cwd()
     docs = [Document(**record) for record in json.loads((root/"fixtures/hybrid/corpus.json").read_text())]
     questions = [q for q in json.loads((root/"fixtures/hybrid/questions.json").read_text()) if q["split"] == split]
     start = perf_counter()

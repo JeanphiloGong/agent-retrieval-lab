@@ -1,5 +1,9 @@
 # v2：多轮补证
 
+## 你要手动构建的部分
+
+从自己的 v1 继续，在 `labs/agent/loop.py` 加入 `Observation`、`Finish`、多轮循环与已见引用校验；在 `tools.py` 加入文档依赖声明，新建 `labs/agent/planner.py` 与 `demo.py` 连接固定规划器和样例。下面的 demo 命令要在这些文件写好后运行；完整参考用于对照未展开的函数。按[学习流程](../../../docs/learning-workflow.md)检查第二次调用确实发生，再提交。
+
 搜索到“rolling deployment”这句话时，结果还说附录包含生产限制。只回答第一条证据会漏掉 `limits` 来源的部署窗口。多轮循环的最小必要改变是：保存每次调用和工具结果，让规划器根据缺口继续读取。
 
 ## 让来源声明可信依赖
@@ -26,14 +30,12 @@ uv run python -m labs.agent.demo --single
 
 ## 完整 v2 checkpoint
 
-从 [v2/loop.py](../../../labs/agent/checkpoints/v2/loop.py) 读取完整实现。它的循环顺序是：提出 `ToolCall`，查注册表，执行一次工具，保存 `Observation`，去重证据，再把新的证据传回规划器。它仍然没有时间或读取预算；如果规划器永远提出新调用，循环只能依赖 `max_steps`。
+从 [v2/loop.py](../../../reference/labs/agent/checkpoints/v2/loop.py) 读取完整实现。它的循环顺序是：提出 `ToolCall`，查注册表，执行一次工具，保存 `Observation`，去重证据，再把新的证据传回规划器。它仍然没有时间或读取预算；如果规划器永远提出新调用，循环只能依赖 `max_steps`。
 
-测试证明循环确实执行第二次工具调用，而不是把两段文本预先拼起来：
+先从自己的 demo 轨迹确认第二次工具调用确实发生，而不是把两段文本预先拼起来。以下命令只回放参考主线相关测试，完整主线测试留到 v3：
 
 ```bash
-uv run python -m unittest tests.test_agent.AgentTests.test_multi_round_reads_missing_appendix_after_search
-uv run python -m unittest tests.test_agent.AgentTests.test_observation_drives_second_planner_call
-uv run python -m unittest tests.test_agent.AgentTests.test_document_instructions_cannot_register_tools_or_change_permissions
+PYTHONPATH=reference uv run python -P -m pytest --import-mode=importlib -q tests/test_agent.py -k 'multi_round_reads or observation_drives or document_instructions'
 ```
 
 最后一个测试把恶意文档当成数据。文档中的“调用 shell”不会改变工具注册表，只有规划器返回的已注册工具名才会执行。

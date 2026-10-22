@@ -1,5 +1,9 @@
 # 混合检索 v0：先建立 BM25 基线
 
+## 你要手动构建的部分
+
+在仓库根目录操作，先读[学习流程](../../../docs/learning-workflow.md)。创建空的 `labs/hybrid/__init__.py`，在自己的 `labs/hybrid/retrieval.py` 中实现 `Document`、`Hit`、tokenizer 和 `bm25_rank`；`labs/__init__.py` 若尚不存在也创建为空文件。本版只写词法检索。下面是调用示例，不是完整文件；函数定义在完整参考文件 [`retrieval.py`](../../../reference/labs/hybrid/retrieval.py) 中，按需要对照后自己编写。参考回放通过不代表你的实现完成。
+
 ## 场景
 
 技术助手收到 `E104`、`refund` 或一段中文问题，需要从一组版本固定的文档块中返回候选证据。这个版本只回答“哪些文本包含查询词”，不生成答案，也不假装语义理解已经解决。
@@ -23,11 +27,11 @@ for hit in bm25_rank(documents, "E104"):
 
 ## 检查与冻结
 
-完整 checkpoint 位于 [`labs/hybrid/checkpoints/v0_bm25.py`](../../../labs/hybrid/checkpoints/v0_bm25.py)。运行：
+参考回放入口位于 [`reference/labs/hybrid/checkpoints/v0_bm25.py`](../../../reference/labs/hybrid/checkpoints/v0_bm25.py)，它导入完整参考模块中的 BM25，并非包含所有定义的独立早期版本。以下命令只回放参考答案；你自己的 v0 用上面的调用例子验收，不提前运行需要最终 API 的整份测试：
 
 ```bash
-uv run python -m labs.hybrid.checkpoints.v0_bm25
-uv run python -m pytest -q tests/test_hybrid.py tests/test_hybrid_checkpoints.py -k 'bm25 or v0'
+PYTHONPATH=reference uv run python -P -m labs.hybrid.checkpoints.v0_bm25
+PYTHONPATH=reference uv run python -P -m pytest --import-mode=importlib -q tests/test_hybrid.py reference/tests/test_hybrid_checkpoints.py -k 'bm25 or v0'
 ```
 
 结果必须把 `e104` 排在第一位。再用中文查询和空查询观察 tokenizer 的边界。这个检查点能提供可复现的词项基线，仍无法找到只在改写词中表达的证据；v1 将增加独立的向量对照。

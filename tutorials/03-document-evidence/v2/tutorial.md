@@ -1,5 +1,7 @@
 # 文档处理与证据定位 v2：分块
 
+从自己已验收的 v1 继续，保留 `v0_extract.py`、`v1_structure.py` 和包文件。本版由你创建 `labs/documents/v2_chunk.py`，写完后再运行示例与本版测试；参考答案不计为自己的学习完成记录。
+
 ## 读者目标
 
 结构块解决了“这段属于哪个标题”，但模型仍有读取预算。分块必须在大小上有界，同时尽量把标题、条件和结论留在一起。
@@ -12,22 +14,9 @@
 
 `fixed_window_chunks` 只按行数切分，返回 `DocumentChunk`，但故意没有结构信息。接着 `structure_chunks` 按 v1 的块顺序合并，块之间用空行连接；标题路径变化时先提交已有块，避免把 Deployment 的文字放进 Refunds 的路径。若组合会超过 `max_chars`，也先提交已有块；超长单行再按字符切开，保证硬上限。
 
-```python
-from pathlib import Path
-from labs.documents.v0_extract import extract_document
-from labs.documents.v1_structure import structure_document
-from labs.documents.v2_chunk import fixed_window_chunks, structure_chunks
-
-raw = extract_document(Path("fixtures/documents/handbook-v1.md"), "handbook", "v1")
-document = structure_document(raw)
-print(fixed_window_chunks(document, max_lines=3)[0])
-for chunk in structure_chunks(document, max_chars=100):
-    print(chunk.chunk_id, chunk.heading_path, len(chunk.text), chunk.block_ids)
-```
-
 这两个函数都校验正数上限。结构分块并不承诺“一个块永远完整”：当单个段落超过预算时，它只能在该段内部切开；但每个结果仍能指出来源行范围和标题路径。
 
-## 第二步：冻结完整检查点
+## 第二步：写出完整模块
 
 下面是 `labs/documents/v2_chunk.py` 的完整 checkpoint。它只包含上面已经解释的机制；保留前一版本模块并创建本版模块，不需要将分散片段拼接。
 
@@ -163,14 +152,37 @@ def structure_chunks(document: StructuredDocument, max_chars: int = 240) -> tupl
 
 
 
-完整实现位于 [labs/documents/v2_chunk.py](../../../labs/documents/v2_chunk.py)。运行：
+写完后，从仓库根目录比较两种分块：
 
 ```bash
-uv run pytest -q tests/documents/test_v2_chunk.py
+uv run python - <<'PY'
+from pathlib import Path
+from labs.documents.v0_extract import extract_document
+from labs.documents.v1_structure import structure_document
+from labs.documents.v2_chunk import fixed_window_chunks, structure_chunks
+
+raw = extract_document(Path("fixtures/documents/handbook-v1.md"), "handbook", "v1")
+document = structure_document(raw)
+print(fixed_window_chunks(document, max_lines=3)[0])
+for chunk in structure_chunks(document, max_chars=100):
+    print(chunk.chunk_id, chunk.heading_path, len(chunk.text), chunk.block_ids)
+PY
+```
+
+参考答案位于 [reference/labs/documents/v2_chunk.py](../../../reference/labs/documents/v2_chunk.py)。只验收本版：
+
+```bash
+uv run python -m pytest -q tests/documents/test_v2_chunk.py
 ```
 
 测试使用 `fixtures/documents/chunk-questions.json` 的同一组问题，要求一个块同时包含问题所需的全部证据词。固定三行基线的完整证据得分是 1/2，结构分块是 2/2，且结构块最大长度不超过 180 字符。它还检查标题路径不混合、非法预算失败，以及单行超长时满足硬上限。这个小数据集只证明本例的取舍，不代表结构切块在所有语料上都更好。
 
+可选的参考重放使用以下命令；它不验收自己的 `labs/`：
+
+```bash
+PYTHONPATH=reference uv run python -P -m pytest --import-mode=importlib -q tests/documents/test_v2_chunk.py
+```
+
 ## 冻结与下一步
 
-现在模型可以收到有界并带结构上下文的块。仍然存在时间问题：回答中的行号会随着文档更新而指向新内容。下一版本为引用绑定来源版本和内容摘要，并对删除的旧版本显式失败。
+自己的实验和普通 pytest 验收通过后，提交 v2 学习检查点。现在模型可以收到有界并带结构上下文的块。仍然存在时间问题：回答中的行号会随着文档更新而指向新内容。下一版本继续你的实现，为引用绑定来源版本和内容摘要，并对删除的旧版本显式失败。

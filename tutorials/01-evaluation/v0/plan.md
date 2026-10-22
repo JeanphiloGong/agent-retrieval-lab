@@ -1,6 +1,6 @@
 # 检索基线与评测 v0：固定问题与证据
 
-状态：verified。实现、教程与标准库 unittest 已完成；复验命令见 [tutorial.md](tutorial.md)。原始范围草案保留如下。
+参考状态：verified。仅表示预写参考材料的验证记录；你的实现进度单独记录在 [个人进度](../../../docs/progress.md)。参考代码位于 `reference/labs/`，重放命令见 [参考区](../../../reference/README.md)；本版手写目标仍是 `labs/`，按 [正文](tutorial.md) 构建。
 
 ## 本版写作任务
 
@@ -66,7 +66,7 @@
 
 - 文档目标：`tutorial.md` 的完整检查点与边界部分。
 - 代码角色：checkpoint；汇总 fixtures、validate.py 和 test_validate.py。
-- 验收：新环境可通过 `uv run python -m unittest discover -s tests/evaluation` 重放；错误样例的实际退出码与教程相符；校验前后原文不变。
+- 验收：本版实现后可通过 `uv run python -m pytest -q tests/evaluation/test_validate.py`；错误样例的实际退出码与教程相符；校验前后原文不变。
 - 验证：在干净临时副本执行教程的所有命令，记录真实输出；当前规划没有执行这些未来命令。
 - 前置：任务 3；范围：S；checkpoint commit：no，待用户要求保存通过复验的正文与代码时再提交。
 - 下一缺口：标注合法不意味着检索有效，v1 将使用这组材料建立关键词基线。

@@ -1,4 +1,3 @@
-import importlib
 import unittest
 
 from labs.access.control import Catalog, Identity, ProtectedDocument, ScopedCache, authorize, safe_context, search, visible_documents
@@ -60,24 +59,6 @@ class AccessTests(unittest.TestCase):
     def test_missing_identity_denied(self):
         with self.assertRaises(PermissionError):
             visible_documents(None, self.docs)
-
-    def test_standalone_version_checkpoints_replay_their_contracts(self):
-        for version in range(4):
-            module = importlib.import_module(f"labs.access.checkpoints.v{version}.control")
-            if version == 0:
-                identity = module.Identity("alice", "tenant-a")
-                documents = [module.ProtectedDocument("a", "tenant-a", "release"),
-                             module.ProtectedDocument("b", "tenant-b", "release")]
-                self.assertEqual([doc.id for doc in module.visible_documents(identity, documents)], ["a"])
-            else:
-                identity = module.Identity("alice", "tenant-a", frozenset({"reader"}))
-                documents = [module.ProtectedDocument("a", "tenant-a", "release", frozenset({"reader"})),
-                             module.ProtectedDocument("f", "tenant-a", "finance", frozenset({"finance"}))]
-                self.assertEqual([doc.id for doc in module.visible_documents(identity, documents)], ["a"])
-            if version >= 2:
-                cache = module.ScopedCache()
-                cache.put(identity, "release", ["a"])
-                self.assertEqual(cache.get(identity, "release"), ("a",))
 
     def test_roles_participate_in_cache_key(self):
         cache = ScopedCache()

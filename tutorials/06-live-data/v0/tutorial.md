@@ -1,5 +1,9 @@
 # SQL 与业务 API v0：固定查询
 
+## 你要手动构建的部分
+
+先读[学习流程](../../../docs/learning-workflow.md)。创建空的 `labs/live_data/__init__.py`，把第二步的完整代码逐段写入自己的 `labs/live_data/query.py`；`labs/__init__.py` 若尚不存在也创建为空文件。第一步的实验在文件写好后运行。主线一直使用 `query.py`，每版通过 Git 保存你的检查点，不创建参考答案使用的 `checkpoints/` 包。
+
 ## 为什么需要实时工具
 
 用户问“现在 A-1 还有多少库存”。手册昨天写着 12，但仓库刚完成一次出库。即使检索器完美找回手册，答案仍然会错，因为这个事实属于实时业务数据。这个版本把问题压缩为本地 SQLite 的一张 `inventory` 表和一个固定 SKU 查询，不引入模型、向量库或 HTTP 服务。
@@ -13,7 +17,7 @@
 ```bash
 uv sync --locked
 uv run python - <<'PY'
-from labs.live_data.checkpoints.v0 import get_product, open_database, seed
+from labs.live_data.query import get_product, open_database, seed
 
 db = open_database()
 seed(db, [("A-1", "cable", 12)])
@@ -29,7 +33,7 @@ PY
 
 ## 第二步：固定查询成为第一个检查点
 
-创建 `labs/live_data/checkpoints/v0.py`。`open_database` 和 `seed` 只给本地实验准备数据，Agent 不拿到这两个写入入口。`get_product` 只执行一个固定、参数化的 SELECT；找不到返回 `None`，找到返回带时间的 `InventoryResult`。下面是本版完整 checkpoint。
+创建自己的 `labs/live_data/query.py`。`open_database` 和 `seed` 只给本地实验准备数据，Agent 不拿到这两个写入入口。`get_product` 只执行一个固定、参数化的 SELECT；找不到返回 `None`，找到返回带时间的 `InventoryResult`。下面是本版组装后的完整文件，已有参考答案位于 `reference/labs/live_data/checkpoints/v0.py`。
 
 ```python
 """v0 checkpoint: one fixed inventory lookup with an observation timestamp."""
@@ -83,14 +87,16 @@ def get_product(connection: sqlite3.Connection, sku: str) -> InventoryResult | N
 
 ## 检查和冻结
 
+先运行第一步的实验，确认你自己的输出为 `12`、`5`、`None`，再补测零库存。以下命令仅回放参考快照：
+
 ```bash
-uv run python -m pytest -q tests/test_live_data_checkpoints.py -k v0
+PYTHONPATH=reference uv run python -P -m pytest --import-mode=importlib -q reference/tests/test_live_data_checkpoints.py -k v0
 ```
 
-它重放创建表、读取、零库存与不存在的状态。最新实现的库存变化测试也可运行：
+它重放创建表、读取、零库存与不存在的状态。以下也只回放参考主线的库存变化测试，不能表示个人 v0 已完成：
 
 ```bash
-uv run python -m pytest -q tests/test_live_data.py -k v0
+PYTHONPATH=reference uv run python -P -m pytest --import-mode=importlib -q tests/test_live_data.py -k v0
 ```
 
 现在固定 SKU 的事实来自查询结果。仍然存在外部参数问题：超长或无效 SKU 会进入数据库，类别列表也可能请求无界页。下一版在工具输入边界定义参数契约。

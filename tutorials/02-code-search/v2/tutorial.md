@@ -2,6 +2,8 @@
 
 运行 v1 的 `grep_literal(root, 'connect')` 会命中说明、注释、调用以及三个不同位置的定义。用户若问“`connect` 函数的实现是什么”，这些结果不能直接当答案。本版新增 `labs/code_search/ast_search.py`，用 Python 标准库 `ast` 找定义及其行范围。
 
+保留自己已验收的 v0、v1 文件，先手写下面的 `ast_search.py`，再运行第 3 节的调用。无需创建参考快照目录，`__init__.py` 也无需提前导入未来的符号。
+
 AST 是解析后的语法树。`FunctionDef`、`AsyncFunctionDef` 与 `ClassDef` 分别表示函数、异步函数和类；注释不会成为这些节点。解析只读取文本，不执行 Python 文件，因此不会触发资料里的导入、网络访问或副作用。
 
 ## 1. 定义返回契约
@@ -10,24 +12,7 @@ AST 是解析后的语法树。`FunctionDef`、`AsyncFunctionDef` 与 `ClassDef`
 
 语法错误用独立结果携带文件、消息和错误行号。空列表表示文件成功解析但没有符合条件的定义；它与无法解析文件必须区分。
 
-## 2. 从名字定位到原文
-
-```bash
-uv run python - <<'PY'
-from pathlib import Path
-from labs.code_search import find_definitions, read_range
-
-root = Path('fixtures/code_search/repository')
-definitions = find_definitions(root, 'app.py', 'connect')
-for definition in definitions:
-    print(definition.qualified_name, definition.line, definition.end_line)
-    print(read_range(root, definition.path,
-                     start_line=definition.line,
-                     end_line=definition.end_line).text, end='')
-PY
-```
-
-结果包含 `wrapper.connect`，范围是 `app.py` 第 11–12 行，而不是第 3 行的注释或第 13 行的调用。查看 `database.py` 时会返回顶层 `connect` 和 `Client.connect`；调用者应保留全部候选，不能只取第一个就宣布找到了用户想要的定义。
+## 2. 写出定义定位
 
 将本版新增文件完整写为 `labs/code_search/ast_search.py`，代码如下。此前版本的文件保持不变。
 
@@ -138,6 +123,26 @@ def find_definitions(
 
 ## 3. 跟随语法树中的作用域
 
+写完文件后，从名字定位到原文：
+
+```bash
+uv run python - <<'PY'
+from pathlib import Path
+from labs.code_search.ast_search import find_definitions
+from labs.code_search.reader import read_range
+
+root = Path('fixtures/code_search/repository')
+definitions = find_definitions(root, 'app.py', 'connect')
+for definition in definitions:
+    print(definition.qualified_name, definition.line, definition.end_line)
+    print(read_range(root, definition.path,
+                     start_line=definition.line,
+                     end_line=definition.end_line).text, end='')
+PY
+```
+
+结果包含 `wrapper.connect`，范围是 `app.py` 第 11–12 行，而不是第 3 行的注释或第 13 行的调用。查看 `database.py` 时会返回顶层 `connect` 和 `Client.connect`；调用者应保留全部候选，不能只取第一个就宣布找到了用户想要的定义。
+
 实现的 `_walk_definitions(node, parents)` 遍历子节点。遇到定义时记录节点的 `lineno`、`end_lineno`，再把新名字加入 `parents` 继续向下。这样 `wrapper` 中的函数仍然会被发现，并得到可解释的限定名。普通 `if` 或 `for` 节点不建立 Python 函数/类命名空间，但其中的定义仍会被继续遍历。
 
 本版返回的行范围从 `def` 或 `class` 开始，不包含上方装饰器。它用于定位实现正文；需要连装饰器一起作为证据时，应明确扩大读取范围。行范围也不能说明运行时最终绑定到了哪个对象。
@@ -148,7 +153,7 @@ def find_definitions(
 uv run python - <<'PY'
 import tempfile
 from pathlib import Path
-from labs.code_search import find_definitions
+from labs.code_search.ast_search import find_definitions
 
 with tempfile.TemporaryDirectory() as directory:
     root = Path(directory)
@@ -164,8 +169,13 @@ PY
 本版文件集合是 `reader.py`、`grep_search.py` 和 `ast_search.py`。`tests/code_search/test_code_search.py` 的 v2 检查嵌套定义、限定名、结束行及语法错误。
 
 ```bash
-uv run python -m unittest discover -s tests/code_search -v
+uv run python -m pytest -q tests/code_search/test_code_search.py -k 'test_v0 or test_v1 or test_v2'
 ```
 
-专题 10 项检查通过。本版识别语法定义，但 `from database import connect as open_database` 的调用仍叫 `open_database`。下一版加入符号索引来解释可静态确定的导入引用，并保留无法确定的候选。
-完整可重放源码保存在 `labs/code_search/checkpoints/v2/`。将本篇示例的导入改为 `from labs.code_search.checkpoints.v2 import ...`，即可直接运行该版；目录中的每个文件都是完整源码，按 reader、grep_search、ast_search、symbols 的顺序只取本版已有文件即可重建。
+预期为到 v2 为止的 6 项检查通过。本版识别语法定义，但 `from database import connect as open_database` 的调用仍叫 `open_database`。下一版加入符号索引来解释可静态确定的导入引用，并保留无法确定的候选。
+
+参考快照位于 `reference/labs/code_search/checkpoints/v2/`；下面只重放参考版本，不验证个人进度：
+
+```bash
+PYTHONPATH=reference uv run python -P -c 'from pathlib import Path; from labs.code_search.checkpoints.v2 import find_definitions; print(find_definitions(Path("fixtures/code_search/repository"), "app.py", "connect"))'
+```

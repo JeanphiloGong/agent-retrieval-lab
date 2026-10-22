@@ -1,5 +1,9 @@
 # SQL 与业务 API v2：受限查询
 
+## 你要手动构建的部分
+
+从自己的 v1 继续修改 `labs/live_data/query.py`，加入查询结果、拒绝和预算错误类型，以及 `query_readonly`。下面完整代码是组装结果，实验应在你实现对应函数后运行。不要让主线导入参考 checkpoint；按[学习流程](../../../docs/learning-workflow.md)检查数据没有被拒绝的写操作修改，再保存自己的版本。
+
 ## 聚合需求暴露固定工具的边界
 
 用户从“查 A-1”转而问“cable 类别总共有多少库存”。不断新增固定函数可以解决部分需求，但本版选择一个小而完整的受限 SQL 实验：只读取本地 `inventory` 表，允许少量聚合函数，单次只能执行一个语句，并限制结果行数与执行工作量。
@@ -16,7 +20,7 @@
 uv run python - <<'PY'
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from labs.live_data.checkpoints.v2 import open_database, query_readonly, seed, QueryRejected
+from labs.live_data.query import open_database, query_readonly, seed, QueryRejected
 
 with TemporaryDirectory() as directory:
     path = Path(directory) / "inventory.sqlite"
@@ -41,7 +45,7 @@ PY
 
 ## 第三步：冻结完整执行边界
 
-`labs/live_data/checkpoints/v2.py` 是本版完整 checkpoint，它保留 v1 的固定工具并增加三种明确错误和 `query_readonly`。下面的代码包含已经解释的连接权限、authorizer、单语句和预算机制。
+将下面组装代码落实到自己的 `labs/live_data/query.py`，保留 v1 的固定工具并增加三种明确错误和 `query_readonly`。它包含已经解释的连接权限、authorizer、单语句和预算机制；完整参考答案在 `reference/labs/live_data/checkpoints/v2.py`。
 
 ```python
 """v2 checkpoint: bounded read-only SQLite queries."""
@@ -215,9 +219,11 @@ def query_readonly(
 
 ## 检查和冻结
 
+先用自己的代码运行聚合与拒绝写入实验，再重新读取数据库确认内容没变。以下命令只回放参考答案对应的验收，不要求你的 v2 提前实现 v3 API：
+
 ```bash
-uv run python -m pytest -q tests/test_live_data.py -k v2
-uv run python -m pytest -q tests/test_live_data_checkpoints.py -k v2
+PYTHONPATH=reference uv run python -P -m pytest --import-mode=importlib -q tests/test_live_data.py -k v2
+PYTHONPATH=reference uv run python -P -m pytest --import-mode=importlib -q reference/tests/test_live_data_checkpoints.py -k v2
 ```
 
 验证覆盖正常聚合、绑定参数、写入、DDL、多语句、关闭 query-only、ATTACH、系统表和扩展读取、结果超限、操作预算、极短 deadline，以及不存在数据库不会被创建。现在 SQL 工具能回答受限聚合。它仍不知道手册中的备货政策是否与当前库存处于同一时间和范围；下一版只在证据可组合时给出政策判断。

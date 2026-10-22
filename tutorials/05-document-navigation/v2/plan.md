@@ -1,6 +1,6 @@
 # 长文档导航 v2：范围读取
 
-状态：verified。正文、实现、固定样例与测试已完成。
+参考状态：verified。仅表示预写参考材料的验证记录；你的实现进度单独记录在 [个人进度](../../../docs/progress.md)。参考代码位于 `reference/labs/`，重放命令见 [参考区](../../../reference/README.md)；本版手写目标仍是 `labs/`，按 [正文](tutorial.md) 构建。
 
 ## 本版写作任务
 
@@ -9,7 +9,7 @@
 - 当前缺口：限制条件位于命中段落的下一段。
 - 必要改变：增加预算受限的章节范围读取。
 - 验收及验证：跨边界读取可定位；截断显式可见。
-- 正文目标：本目录 `tutorial.md`；代码目标：`labs/navigation/`；验证目标：`tests/navigation/`。
+- 正文目标：本目录 `tutorial.md`；代码目标：`labs/navigation/`；验证目标：`tests/test_navigation.py`。
 - 代码角色：patch，正文末尾提供该版完整 checkpoint。
 - 预计范围：一个版本；若实现需要多个独立机制，应先拆为多个写作任务。
 - 提交策略：规划阶段不提交检查点；正文和实现通过复验后再保存版本 commit。

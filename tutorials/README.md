@@ -1,6 +1,8 @@
 # 教程规划目录
 
-下列专题均已有教程正文、实现和测试；每版的实际边界与命令记录在对应正文和 `plan.md` 中。
+下列专题提供教程正文、固定输入、验收测试及参考答案。你在 `labs/` 逐版手写，参考实现保存在 `reference/labs/`；每版的边界见正文和 `plan.md`。计划里的参考验证记录不代表你的实现进度。
+
+先读 [手动构建流程](../docs/learning-workflow.md)，从 [01 v0](01-evaluation/v0/tutorial.md) 开始。[个人进度](../docs/progress.md) 初始为 0/37。
 
 - [01 检索基线与评测](01-evaluation/README.md)：v0-v2
 - [02 代码与精确检索](02-code-search/README.md)：v0-v3

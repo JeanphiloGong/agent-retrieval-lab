@@ -1,10 +1,10 @@
 # 混合检索 v4：消融评测
 
-状态：verified。实现、教程、固定语料与测试已完成。独立 checkpoint：[labs/hybrid/checkpoints/v4_benchmark.py](../../../labs/hybrid/checkpoints/v4_benchmark.py)。重放：
+参考状态：verified。仅表示预写参考材料的验证记录；你的实现进度单独记录在 [个人进度](../../../docs/progress.md)。参考代码位于 `reference/labs/`，重放命令见 [参考区](../../../reference/README.md)；本版手写目标仍是 `labs/`，按 [正文](tutorial.md) 构建。
 
 ```bash
-uv run python -m labs.hybrid.checkpoints.v4_benchmark --output artifacts/hybrid-heldout.json --split heldout
-uv run python -m pytest -q tests/test_hybrid.py tests/test_hybrid_checkpoints.py
+PYTHONPATH=reference uv run python -P -m labs.hybrid.checkpoints.v4_benchmark --output artifacts/hybrid-heldout.json --split heldout
+PYTHONPATH=reference uv run python -P -m pytest --import-mode=importlib -q tests/test_hybrid.py reference/tests/test_hybrid_checkpoints.py
 ```
 
 ## 本版写作任务
@@ -14,7 +14,7 @@ uv run python -m pytest -q tests/test_hybrid.py tests/test_hybrid_checkpoints.py
 - 当前缺口：平均分掩盖精确查询退化。
 - 必要改变：固定测试集比较各检索组合。
 - 验收及验证：报告分组质量、成本、p50/p95；不预设混合一定获胜。
-- 正文目标：本目录 `tutorial.md`；代码目标：`labs/hybrid/`；验证目标：`tests/hybrid/`。
+- 正文目标：本目录 `tutorial.md`；代码目标：`labs/hybrid/`；验证目标：`tests/test_hybrid.py`。
 - 代码角色：patch，正文末尾提供该版完整 checkpoint。
 - 预计范围：一个版本；若实现需要多个独立机制，应先拆为多个写作任务。
 - 提交策略：规划阶段不提交检查点；正文和实现通过复验后再保存版本 commit。

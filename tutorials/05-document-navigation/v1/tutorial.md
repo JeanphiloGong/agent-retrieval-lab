@@ -1,15 +1,19 @@
 # 长文档导航 v1：定位节点而不是直接回答
 
+## 你要手动构建的部分
+
+从自己的 v0 Git 检查点继续，在 `labs/navigation/navigation.py` 增加 `_terms` 与 `find_sections`，保留已有树结构和来源范围。以下示例应导入你的主线模块；完整参考 checkpoint 只供理解未展开的函数。按[学习流程](../../../docs/learning-workflow.md)运行本版实验后再提交。
+
 v0 保留了手册目录，但“免费计划是否能安装版本 3”仍可能被 `Install` 标题吸引而漏掉附录。本版增加 `_terms()` 与 `find_sections()`，在节点标题和节点自身正文上建立透明的词项检索入口。输入仍为同一份手册，不新增摘要生成模型。
 
-完整检查点是 `labs/navigation/checkpoints/v1/navigation.py`，在 v0 完整源码之后新增两个函数；此前函数保持一致。节点的 `text` 保留自己的正文，不把后代再次复制到父节点，所以同一句限制不会让根节点、附录和限制节点同时获得相同匹配。
+完整检查点是 `reference/labs/navigation/checkpoints/v1/navigation.py`，在 v0 完整源码之后新增两个函数；此前函数保持一致。节点的 `text` 保留自己的正文，不把后代再次复制到父节点，所以同一句限制不会让根节点、附录和限制节点同时获得相同匹配。
 
 ## 1. 用具体问题观察结果
 
 ```bash
 uv run python - <<'PY'
 from pathlib import Path
-from labs.navigation.checkpoints.v1.navigation import document_tree, find_sections
+from labs.navigation.navigation import document_tree, find_sections
 
 text = Path('fixtures/navigation/manual-v1.md').read_text()
 sections = document_tree(text, source_id='manual', source_version='v1')
@@ -29,10 +33,10 @@ PY
 
 ## 3. 检查结果与来源的关系
 
-`find_sections()` 不改写节点和原文；每个结果仍带着 v0 的 `source_id`、版本、行范围和内容摘要。测试 `test_find_section_returns_appendix_condition` 验证附录限制排在首位，并验证根节点正文不包含安装子章节的文字。
+`find_sections()` 不改写节点和原文；每个结果仍带着 v0 的 `source_id`、版本、行范围和内容摘要。用自己的例子确认附录限制排在首位，根节点正文不包含安装子章节的文字。以下只回放参考答案的对应测试，个人 v1 不需要实现未来 API：
 
 ```bash
-uv run python -m unittest tests.test_navigation -v
+PYTHONPATH=reference uv run python -P -m pytest --import-mode=importlib -q tests/test_navigation.py -k find_section
 ```
 
-专题 11 项测试通过。当前检索只表达词面重合，不能可靠处理同义改写，也没有证明检索结果支持一个回答。下一版通过有预算、可定位的原文读取把候选变成证据；v3 再与 04 的混合检索比较。
+当前检索只表达词面重合，不能可靠处理同义改写，也没有证明检索结果支持一个回答。下一版通过有预算、可定位的原文读取把候选变成证据；v3 再与 04 的混合检索比较。

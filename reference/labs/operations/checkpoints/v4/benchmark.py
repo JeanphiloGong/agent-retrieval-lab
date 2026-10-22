@@ -12,12 +12,12 @@ from time import perf_counter
 from labs.access.control import Identity
 from labs.hybrid.models import EMBEDDING, load_embedding
 from labs.hybrid.retrieval import Document
-from labs.operations.index import Index, QueryCache
-from labs.operations.serving import Overloaded, Sample, WorkerPool, report
+from .index import Index, QueryCache
+from .serving import Overloaded, Sample, WorkerPool, report
 
 
 async def run(output: Path, workers: int = 2, waiting: int = 4):
-    root = Path(__file__).resolve().parents[2]
+    root = Path.cwd()
     docs = [Document(**row) for row in json.loads((root/"fixtures/hybrid/corpus.json").read_text())]
     questions = [row for row in json.loads((root/"fixtures/hybrid/questions.json").read_text()) if row["gold"]]
     encoder = load_embedding(root/"artifacts/models")

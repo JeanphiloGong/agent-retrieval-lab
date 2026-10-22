@@ -1,8 +1,12 @@
 # 长文档导航 v2：读取有限范围
 
+## 你要手动构建的部分
+
+从自己的 v1 继续，在 `labs/navigation/navigation.py` 增加 `RangeRead` 与 `read_range`，不重写已有导航逻辑。按下面的截断、跨边界和过期内容实验验证自己的代码。完整参考供对照，不能以参考回放替代个人验收；参见[学习流程](../../../docs/learning-workflow.md)。
+
 v1 只给出值得打开的节点。手册可能在下一段或下一章节才写限制，读取结果还可能因为预算而被截断。本版增加 `RangeRead` 和 `read_range()`：结果始终携带实际返回的来源、版本、行范围、字符范围与截断状态。
 
-完整代码是 `labs/navigation/checkpoints/v2/navigation.py`。本版只在 v1 之后增加结果类型和读取函数。返回对象替代朴素的 `(text, truncated)`，因为后者无法准确表达跨章节扩展和截断后的证据位置。
+完整代码是 `reference/labs/navigation/checkpoints/v2/navigation.py`。本版只在 v1 之后增加结果类型和读取函数。返回对象替代朴素的 `(text, truncated)`，因为后者无法准确表达跨章节扩展和截断后的证据位置。
 
 ## 1. 先验证节点没有过期
 
@@ -15,7 +19,7 @@ v1 只给出值得打开的节点。手册可能在下一段或下一章节才�
 ```bash
 uv run python - <<'PY'
 from pathlib import Path
-from labs.navigation.checkpoints.v2.navigation import document_tree, read_range
+from labs.navigation.navigation import document_tree, read_range
 
 text = Path('fixtures/navigation/manual-v1.md').read_text()
 section = document_tree(text, source_id='manual', source_version='v1')[1]
@@ -38,7 +42,7 @@ PY
 
 ```bash
 uv run python - <<'PY'
-from labs.navigation.checkpoints.v2.navigation import document_tree, read_range
+from labs.navigation.navigation import document_tree, read_range
 
 text = '# Manual\nOriginal.\n'
 section = document_tree(text)[0]
@@ -52,7 +56,7 @@ PY
 输出 `section belongs to different document content`。负数扩展、零预算与越界节点也被拒绝，不产生看似有效的空引用。
 
 ```bash
-uv run python -m unittest tests.test_navigation -v
+PYTHONPATH=reference uv run python -P -m pytest --import-mode=importlib -q tests/test_navigation.py -k 'range or stale'
 ```
 
-专题 11 项测试通过。本版冻结精确读取，尚未把正文许可、附录排除和另一份发布说明组合起来。下一版保留每条出处，并分别评测单文档和多文档问题。
+上面的 pytest 命令只回放参考答案；个人验收使用前面的截断、范围扩展与错误输入实验。只有自己的代码得到相同边界行为才冻结本版。当前尚未把正文许可、附录排除和另一份发布说明组合起来；下一版保留每条出处，并分别评测单文档和多文档问题。

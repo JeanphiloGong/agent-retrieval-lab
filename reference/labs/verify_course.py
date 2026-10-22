@@ -1,4 +1,4 @@
-"""Structural verification for the 9-topic, 37-checkpoint course."""
+"""Inventory the supplied course materials, independent of learner progress."""
 from __future__ import annotations
 
 import argparse
@@ -35,14 +35,14 @@ def verify(root: Path) -> dict[str, int]:
         for plan in versions:
             version_count += 1
             body = plan.read_text(encoding="utf-8")
-            if not re.search(r"状态：verified", body):
-                errors.append(f"unverified plan: {plan.relative_to(root)}")
+            if not re.search(r"参考状态：verified", body):
+                errors.append(f"unverified reference plan: {plan.relative_to(root)}")
             if not plan.with_name("tutorial.md").exists():
                 errors.append(f"missing tutorial: {plan.parent.relative_to(root)}/tutorial.md")
             else:
                 tutorial_count += 1
-        if not (root / "labs" / package).exists():
-            errors.append(f"missing implementation package: labs/{package}")
+        if not (root / "reference" / "labs" / package).exists():
+            errors.append(f"missing reference package: reference/labs/{package}")
         if not (root / "tests").exists():
             errors.append("missing tests directory")
     if topic_count != 9 or version_count != 37 or tutorial_count != 37:

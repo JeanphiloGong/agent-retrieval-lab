@@ -1,6 +1,6 @@
 # 文档处理与证据定位 v3：稳定引用
 
-状态：verified。正文、独立版本模块和固定样例已实现；运行 `uv run python -m pytest -q tests/documents/test_v3_citations.py` 验证，本版 8 项通过（2026-10-16）。验收边界见 [正文](tutorial.md)。
+参考状态：verified。仅表示预写参考材料的验证记录；你的实现进度单独记录在 [个人进度](../../../docs/progress.md)。参考代码位于 `reference/labs/`，重放命令见 [参考区](../../../reference/README.md)；本版手写目标仍是 `labs/`，按 [正文](tutorial.md) 构建。
 
 ## 本版写作任务
 

@@ -1,8 +1,12 @@
 # 长文档导航 v3：组合跨章节证据并比较检索
 
+## 你要手动构建的部分
+
+从自己的 v2 继续，在 `labs/navigation/navigation.py` 增加 `Evidence`、`combine_evidence` 与 `compare_navigation`，接上你在专题 04 写好的检索模块。下面是调用与验收说明，完整函数可对照参考 checkpoint 手写。按[学习流程](../../../docs/learning-workflow.md)完成本版后，再验收完整专题 API。
+
 v2 可以按节点读取范围，但一个真实回答往往需要多条约束：正文允许安装、附录排除免费计划，另一份发布说明还给出支持截止日期。本版增加 `Evidence`、`combine_evidence()` 和 `compare_navigation()`，将多来源证据保留为独立记录，并把结构导航与 04 的混合检索放到同一组评测问题上。
 
-完整源码是 `labs/navigation/checkpoints/v3/navigation.py`。前三个检查点的 API 仍可用；新增函数不把冲突证据合并成一段无出处的摘要。
+完整源码是 `reference/labs/navigation/checkpoints/v3/navigation.py`。前三个检查点的 API 仍可用；新增函数不把冲突证据合并成一段无出处的摘要。
 
 ## 1. 组合时保留来源
 
@@ -12,7 +16,7 @@ v2 可以按节点读取范围，但一个真实回答往往需要多条约束�
 uv run python - <<'PY'
 import json
 from pathlib import Path
-from labs.navigation.checkpoints.v3.navigation import combine_evidence
+from labs.navigation.navigation import combine_evidence
 
 root = Path('fixtures/navigation')
 documents = {
@@ -56,7 +60,7 @@ PY
 ## 最终检查点
 
 ```bash
-uv run python -m unittest tests.test_navigation -v
+uv run python -m pytest -q tests/test_navigation.py
 ```
 
-本专题目前 11 项确定性测试通过。覆盖树顺序、空文档、围栏标题、重复标题、精确 CRLF/中文范围、过期内容、截断、跨来源冲突、单/多文档分组和 hybrid 后端要求。仍未覆盖 PDF 版面、OCR、权限过滤、跨文档去重实体和大型索引容量；这些属于 03、08、09 的后续边界。导航完成的是证据定位，回答层仍须独立检查证据是否足以支持结论。
+该命令验收你的主线，覆盖树顺序、空文档、围栏标题、重复标题、精确 CRLF/中文范围、过期内容、截断、跨来源冲突、单/多文档分组和 hybrid 后端要求。若只想回放预写答案，使用 `PYTHONPATH=reference uv run python -P -m pytest --import-mode=importlib -q tests/test_navigation.py`；历史快照测试在 `reference/tests/test_saved_checkpoints.py`。这些参考检查不会计入个人进度。仍未覆盖 PDF 版面、OCR、权限过滤、跨文档去重实体和大型索引容量；这些属于 03、08、09 的后续边界。导航完成的是证据定位，回答层仍须独立检查证据是否足以支持结论。

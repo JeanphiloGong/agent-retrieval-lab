@@ -1,5 +1,9 @@
 # SQL 与业务 API v1：参数契约
 
+## 你要手动构建的部分
+
+从自己的 v0 继续修改 `labs/live_data/query.py`：加入参数校验和 `list_products`，保留固定查询。第二步给出组装后的完整文件供对照；先完成这些修改，再运行第一步的调用实验。参考答案留在 `reference/`，按[学习流程](../../../docs/learning-workflow.md)提交你自己的 v1。
+
 ## 从当前查询到外部输入
 
 v0 的调用者手工传入 `A-1`；真实 Agent 的参数来自模型或用户。现在尝试空 SKU、`A' OR 1=1 --`，以及 `limit=1000000`。SQL 占位符已经把值当数据处理，但它没有表达业务允许的 SKU 形状，也没有限制返回量。
@@ -12,7 +16,7 @@ v0 的调用者手工传入 `A-1`；真实 Agent 的参数来自模型或用户�
 
 ```bash
 uv run python - <<'PY'
-from labs.live_data.checkpoints.v1 import get_product, list_products, open_database, seed
+from labs.live_data.query import get_product, list_products, open_database, seed
 
 db = open_database()
 seed(db, [("A-1", "cable", 12), ("A-2", "cable", 0)])
@@ -30,7 +34,7 @@ PY
 
 ## 第二步：冻结完整参数工具
 
-保留 v0 快照，创建 `labs/live_data/checkpoints/v1.py`。这是本版完整 checkpoint；它加入输入校验和有界列表，尚未开放任意 SQL。
+先用 Git 保存自己的 v0，再修改 `labs/live_data/query.py`。以下是本版组装后的完整文件；它加入输入校验和有界列表，尚未开放任意 SQL。预写对照答案在 `reference/labs/live_data/checkpoints/v1.py`，无需改动它。
 
 ```python
 """v1 checkpoint: validated fixed inventory tools with bounded pagination."""
@@ -120,9 +124,11 @@ def list_products(
 
 ## 检查和冻结
 
+先用第一步实验验证自己的代码，并补测下面列出的无效参数。以下命令只回放参考主线与快照；早期个人版本不需要提前满足最终模块导入：
+
 ```bash
-uv run python -m pytest -q tests/test_live_data.py -k v1
-uv run python -m pytest -q tests/test_live_data_checkpoints.py -k v1
+PYTHONPATH=reference uv run python -P -m pytest --import-mode=importlib -q tests/test_live_data.py -k v1
+PYTHONPATH=reference uv run python -P -m pytest --import-mode=importlib -q reference/tests/test_live_data_checkpoints.py -k v1
 ```
 
 测试包括合法分页、注入输入、不存在与零库存、空/小写/超长 SKU、布尔页大小和页边界。现在 Agent 可以安全填充固定业务参数，但“每个类别的库存总量”还没有对应的固定工具。下一版提供真正受限的 SQL 执行环境，并把只读与资源预算放在执行边界实现。

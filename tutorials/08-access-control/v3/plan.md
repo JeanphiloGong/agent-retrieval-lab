@@ -1,7 +1,7 @@
 # 权限与多租户 v3：对抗检查
 
-状态：verified。越权、恶意内容和 ranker 注入测试已通过；生产部署仍需外部身份与审计系统。
-重放命令：`uv run python -c "from labs.access.checkpoints.v3.control import Catalog; print(Catalog)"`。
+参考状态：verified。仅表示预写参考材料的验证记录；你的实现进度单独记录在 [个人进度](../../../docs/progress.md)。参考代码位于 `reference/labs/`，重放命令见 [参考区](../../../reference/README.md)；本版手写目标仍是 `labs/`，按 [正文](tutorial.md) 构建。
+重放命令：`PYTHONPATH=reference uv run python -P -c "from labs.access.checkpoints.v3.control import Catalog; print(Catalog)"`。
 
 ## 本版写作任务
 
@@ -10,7 +10,7 @@
 - 当前缺口：文档诱导读取私密文件或跨租户查询。
 - 必要改变：建立越权与提示注入评测集。
 - 验收及验证：检查工具执行记录和上下文泄漏；不能仅凭模型拒答判安全。
-- 正文目标：本目录 `tutorial.md`；代码目标：`labs/access/`；验证目标：`tests/access/`。
+- 正文目标：本目录 `tutorial.md`；代码目标：`labs/access/`；验证目标：`tests/test_access.py`。
 - 代码角色：patch，正文末尾提供该版完整 checkpoint。
 - 预计范围：一个版本；若实现需要多个独立机制，应先拆为多个写作任务。
 - 提交策略：规划阶段不提交检查点；正文和实现通过复验后再保存版本 commit。

@@ -1,5 +1,9 @@
 # SQL 与业务 API v3：实时与历史结合
 
+## 你要手动构建的部分
+
+从自己的 v2 继续修改 `labs/live_data/query.py`，新增 `PolicyEvidence`、时间解析、`load_policy` 与 `combine_with_policy`，保留先前的查询边界。先写这些函数，再运行固定时钟实验和最终主线测试。参考快照不需要复制进 `labs/`；个人完成条件见[学习流程](../../../docs/learning-workflow.md)。
+
 ## 两个来源不等于一个可靠答案
 
 用户问“A-1 库存是否符合备货要求”。SQL 返回 12，手册说“至少 10”，看上去可以直接比较。但库存可能是昨天的缓存，手册可能已经到期，区域政策可能要求 20。本版不让模型随意拼接它们：只有时间和适用范围都通过检查，程序才返回可回答的判断。
@@ -29,7 +33,7 @@
 ```bash
 uv run python - <<'PY'
 from datetime import datetime, timezone
-from labs.live_data.checkpoints.v3 import InventoryResult, combine_with_policy, load_policy
+from labs.live_data.query import InventoryResult, combine_with_policy, load_policy
 
 now = datetime(2026, 10, 16, 12, tzinfo=timezone.utc)
 inventory = InventoryResult("A-1", "cable", 12, now.isoformat())
@@ -44,7 +48,7 @@ PY
 
 ## 第三步：冻结完整专题检查点
 
-`labs/live_data/checkpoints/v3.py` 保存本版完整来源，`labs/live_data/query.py` 是实际集成入口；两者相同逻辑，快照不被主线代码导入。下面是本版完整 checkpoint，只组装此前的固定查询、参数契约、只读预算和证据组合。
+下面是写入自己 `labs/live_data/query.py` 的完整组装结果，只包含此前的固定查询、参数契约、只读预算和证据组合。预写参考在 `reference/labs/live_data/checkpoints/v3.py`；不要从主线导入该快照。
 
 ```python
 """v3 checkpoint: live inventory queries and dated policy evidence."""
@@ -310,8 +314,16 @@ def combine_with_policy(
 
 ## 检查和冻结
 
+先验收自己的主线：
+
 ```bash
-uv run python -m pytest -q tests/test_live_data.py tests/test_live_data_checkpoints.py
+uv run python -m pytest -q tests/test_live_data.py
+```
+
+下面是单独的参考答案回放，不计为个人完成：
+
+```bash
+PYTHONPATH=reference uv run python -P -m pytest --import-mode=importlib -q tests/test_live_data.py reference/tests/test_live_data_checkpoints.py
 ```
 
 验证实时变化、零库存、参数和 SQL 边界、预算，以及政策的当前/过期/类别不符/来源冲突、库存 60 秒边界、未来和无时区时间。历史快照测试分别导入 v0–v3，不把最新源码冒充所有版本。

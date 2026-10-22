@@ -2,23 +2,7 @@ from __future__ import annotations
 
 import tempfile
 import unittest
-import importlib
-import shutil
-import subprocess
-import sys
 from pathlib import Path
-
-from labs.code_search import (
-    FileRead,
-    GrepResult,
-    SymbolIndex,
-    SyntaxErrorResult,
-    WorkspaceError,
-    find_definitions,
-    grep_literal,
-    read_file,
-    read_range,
-)
 
 
 class CodeSearchTest(unittest.TestCase):
@@ -52,6 +36,8 @@ class CodeSearchTest(unittest.TestCase):
         self.temp.cleanup()
 
     def test_v0_reads_file_and_range(self) -> None:
+        from labs.code_search.reader import FileRead, read_file, read_range
+
         result = read_file(self.root, "consumer.py")
         self.assertIsInstance(result, FileRead)
         self.assertEqual(result.start_line, 1)
@@ -61,6 +47,8 @@ class CodeSearchTest(unittest.TestCase):
         self.assertEqual(read_range(self.root, "large.txt", start_line=2, end_line=2).text, "last\n")
 
     def test_v0_rejects_traversal_symlink_and_oversized_range(self) -> None:
+        from labs.code_search.reader import WorkspaceError, read_file
+
         outside = self.root.parent / "outside-code.txt"
         outside.write_text("private", encoding="utf-8")
         link = self.root / "link.txt"
@@ -76,6 +64,8 @@ class CodeSearchTest(unittest.TestCase):
             read_file(self.root, "consumer.py", max_bytes=4)
 
     def test_v1_literal_search_and_no_match(self) -> None:
+        from labs.code_search.grep_search import GrepResult, grep_literal
+
         result = grep_literal(self.root, "[E104]")
         self.assertIsInstance(result, GrepResult)
         self.assertEqual(result.status, "no_match")
@@ -86,10 +76,14 @@ class CodeSearchTest(unittest.TestCase):
         self.assertTrue(any(match.path == "consumer.py" and match.line == 3 for match in result.matches))
 
     def test_v1_timeout_is_distinct(self) -> None:
+        from labs.code_search.grep_search import grep_literal
+
         result = grep_literal(self.root, "connect", timeout_seconds=0.000001)
         self.assertEqual(result.status, "timeout")
 
     def test_v2_finds_definitions_not_comments(self) -> None:
+        from labs.code_search.ast_search import find_definitions
+
         result = find_definitions(self.root, "consumer.py", "connect")
         self.assertIsInstance(result, list)
         self.assertEqual(len(result), 1)
@@ -99,6 +93,8 @@ class CodeSearchTest(unittest.TestCase):
         self.assertEqual(nested[0].end_line, 10)
 
     def test_v2_reports_syntax_error(self) -> None:
+        from labs.code_search.ast_search import SyntaxErrorResult, find_definitions
+
         bad = self.root / "bad.py"
         bad.write_text("def broken(:\n", encoding="utf-8")
         result = find_definitions(self.root, "bad.py")
@@ -106,6 +102,8 @@ class CodeSearchTest(unittest.TestCase):
         self.assertEqual(result.line, 1)
 
     def test_v3_resolves_import_alias_and_exposes_candidates(self) -> None:
+        from labs.code_search.symbols import SymbolIndex
+
         index = SymbolIndex.build(self.root)
         aliases = index.references("connect", path="consumer.py")
         self.assertTrue(any(reference.resolution == "confirmed" for reference in aliases))
@@ -115,6 +113,8 @@ class CodeSearchTest(unittest.TestCase):
         self.assertEqual(index.syntax_errors, ())
 
     def test_v3_preserves_ambiguous_inference_and_unicode_positions(self) -> None:
+        from labs.code_search.symbols import SymbolIndex
+
         (self.root / "conditional.py").write_text(
             "def choose(flag):\n"
             "    if flag:\n"
@@ -133,33 +133,14 @@ class CodeSearchTest(unittest.TestCase):
         self.assertEqual(unicode_refs[0].resolution, "confirmed")
 
     def test_v3_keeps_dynamic_reference_unresolved(self) -> None:
+        from labs.code_search.symbols import SymbolIndex
+
         (self.root / "dynamic.py").write_text(
             "obj = get_object()\nobj.connect()\n", encoding="utf-8"
         )
         index = SymbolIndex.build(self.root)
         dynamic = index.references("connect", path="dynamic.py")
         self.assertTrue(any(reference.resolution == "unresolved" for reference in dynamic))
-
-    def test_saved_checkpoints_are_independently_runnable(self) -> None:
-        for version in range(4):
-            checkpoint = importlib.import_module(f"labs.code_search.checkpoints.v{version}")
-            self.assertEqual(checkpoint.read_range(self.root, "consumer.py", start_line=4, end_line=4).text,
-                             "def run():\n")
-            if version >= 1:
-                self.assertEqual(checkpoint.grep_literal(self.root, "open_connection").status, "matched")
-            if version >= 2:
-                self.assertEqual(checkpoint.find_definitions(self.root, "consumer.py", "run")[0].name, "run")
-            if version >= 3:
-                self.assertTrue(checkpoint.SymbolIndex.build(self.root).find_symbols("run"))
-            with tempfile.TemporaryDirectory() as replay:
-                replay_root = Path(replay)
-                source = Path("labs/code_search/checkpoints") / f"v{version}"
-                shutil.copytree(source, replay_root / "code_search", ignore=shutil.ignore_patterns("__pycache__"))
-                result = subprocess.run(
-                    [sys.executable, "-c", "from code_search import read_file; print(read_file.__module__)"],
-                    cwd=replay_root, capture_output=True, text=True, check=True,
-                )
-                self.assertEqual(result.stdout.strip(), "code_search.reader")
 
 
 if __name__ == "__main__":

@@ -2,14 +2,16 @@
 
 本版从 01 的来源与行号契约出发，给代码工具增加第一个可运行能力：读取工作目录内的 UTF-8 文件及包含两端的行范围。实现位于 `labs/code_search/reader.py`，固定资料在 `fixtures/code_search/repository/`。不调用模型，也不执行被读取的源代码。
 
+先创建 `labs/code_search/`，并创建空的 `labs/__init__.py` 和 `labs/code_search/__init__.py`；若前一专题已创建 `labs/__init__.py`，保留它。下面的完整代码由你写入 `reader.py`，写完后再运行调用实验。`reference/` 中的代码只作对照，不会自动成为你的实现。
+
 场景是助手已知道 `database.py` 包含 E104 的定义，准备读原文。直接使用 `Path(path).read_text()` 会让调用者读到 `../` 指向的文件；只检查字符串不含 `..` 又挡不住指向目录外的符号链接。因此这里的规则是：工作目录由宿主确定，外部输入只允许相对路径，解析后的真实文件仍必须在真实工作目录内。
 
 ## 1. 定义读取结果和路径边界
 
-`FileRead` 是不可变结果，包含相对路径、起止行号和原始文本。`WorkspaceError` 表示输入不满足读取契约。查看实现的第一部分：
+`FileRead` 是不可变结果，包含相对路径、起止行号和原始文本。`WorkspaceError` 表示输入不满足读取契约。如需对照参考文件的第一部分：
 
 ```bash
-sed -n '1,55p' labs/code_search/reader.py
+sed -n '1,55p' reference/labs/code_search/reader.py
 ```
 
 `_resolve_file(workspace, relative_path)` 的输入是可信工作目录和不可信相对路径，输出是已解析的根目录与文件路径，不读取文件。它按以下顺序检查：路径为非空字符串；拒绝绝对路径与 `..`；使用 `resolve(strict=True)` 跟随符号链接并要求目标存在；最后验证 `target.is_relative_to(root)` 和 `target.is_file()`。拒绝目录可以避免调用者把一次“读文件”变成目录扫描。
@@ -19,31 +21,6 @@ sed -n '1,55p' labs/code_search/reader.py
 ## 2. 按范围读取并限制返回大小
 
 `read_range()` 是本版对外入口。`start_line` 从 1 开始，`end_line` 为包含端点；省略结束行表示读到文件结束。返回大小按 UTF-8 字节计算，默认 8192 字节。`read_file()` 只是同一读取实现的完整文件入口，不建立另一条绕过边界的路径。
-
-从仓库根目录运行：
-
-```bash
-uv run python - <<'PY'
-from pathlib import Path
-from labs.code_search import read_range
-
-result = read_range(
-    Path('fixtures/code_search/repository'),
-    'database.py',
-    start_line=3,
-    end_line=3,
-)
-print(result.path, result.start_line, result.end_line)
-print(result.text, end='')
-PY
-```
-
-结果是：
-
-```text
-database.py 3 3
-ERROR_TIMEOUT = "[E104]: connection timed out"
-```
 
 实现逐行读取，只累计选中的行，选中范围超过 `max_bytes` 就失败。它保持原行尾，所以返回的 `text` 可以与原文精确比对；这也意味着末尾的换行符计入字节预算。起始行超过文件末尾属于错误，空文件的完整读取则合法，返回 `start_line=1, end_line=0, text=''`。
 
@@ -172,12 +149,37 @@ def read_file(
 
 ## 3. 运行拒绝实验
 
+写完 `reader.py` 后，先从仓库根目录运行成功读取：
+
+```bash
+uv run python - <<'PY'
+from pathlib import Path
+from labs.code_search.reader import read_range
+
+result = read_range(
+    Path('fixtures/code_search/repository'),
+    'database.py',
+    start_line=3,
+    end_line=3,
+)
+print(result.path, result.start_line, result.end_line)
+print(result.text, end='')
+PY
+```
+
+结果应为：
+
+```text
+database.py 3 3
+ERROR_TIMEOUT = "[E104]: connection timed out"
+```
+
 下面的请求必须失败，不能返回“没有内容”来掩盖权限边界：
 
 ```bash
 uv run python - <<'PY'
 from pathlib import Path
-from labs.code_search import WorkspaceError, read_file
+from labs.code_search.reader import WorkspaceError, read_file
 
 try:
     read_file(Path('fixtures/code_search/repository'), '../questions.json')
@@ -195,8 +197,15 @@ PY
 本版完整文件集合是 `reader.py` 与固定样例树。后续版本增加文件时不会改写本版接口。运行：
 
 ```bash
-uv run python -m unittest discover -s tests/code_search -v
+uv run python -m pytest -q tests/code_search/test_code_search.py -k test_v0
 ```
 
-本专题共 10 个测试通过；其中 v0 的两项专门检查本版行为。当前仍须事先知道文件名，也没有文件快照或操作系统沙箱。下一版用字面量检索定位包含 E104 的文件和行号，再回到本版读取上下文。
-完整可重放源码保存在 `labs/code_search/checkpoints/v0/`。将本篇示例的导入改为 `from labs.code_search.checkpoints.v0 import ...`，即可直接运行该版；目录中的每个文件都是完整源码，按 reader、grep_search、ast_search、symbols 的顺序只取本版已有文件即可重建。
+预期为本版 2 项通过；这条命令只验收你写出的 v0。当前仍须事先知道文件名，也没有文件快照或操作系统沙箱。下一版在你的 v0 上用字面量检索定位包含 E104 的文件和行号，再读取上下文。
+
+参考快照位于 `reference/labs/code_search/checkpoints/v0/`。如需独立核对参考答案，可从仓库根目录显式运行：
+
+```bash
+PYTHONPATH=reference uv run python -P -c 'from pathlib import Path; from labs.code_search.checkpoints.v0 import read_range; print(read_range(Path("fixtures/code_search/repository"), "database.py", start_line=3, end_line=3).text, end="")'
+```
+
+参考重放通过不代表你的学习检查点完成；提交检查点前应使用上面的普通 `uv run python -m pytest` 命令验证自己的 `labs/`。

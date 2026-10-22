@@ -1,5 +1,4 @@
 import asyncio
-import importlib
 from pathlib import Path
 import tempfile
 import unittest
@@ -58,23 +57,6 @@ class IndexTests(unittest.TestCase):
         self.assertEqual(data["quality"], .5)
         self.assertEqual(data["failure_rate"], .5)
         self.assertEqual(data["p95"], .5)
-
-    def test_standalone_version_checkpoints_replay_their_contracts(self):
-        for version in range(5):
-            module = importlib.import_module(f"labs.operations.checkpoints.v{version}.index")
-            with tempfile.TemporaryDirectory() as directory:
-                index = module.Index(Path(directory) / "index.db", "m1", "c1")
-                index.apply("a", "doc", 1, "hello", [1, 0])
-                self.assertEqual(index.generation("a"), (("doc", 1),))
-                index.close()
-            if version >= 2:
-                self.assertTrue(hasattr(module, "QueryCache"))
-            if version >= 3:
-                serving = importlib.import_module(f"labs.operations.checkpoints.v{version}.serving")
-                self.assertTrue(hasattr(serving, "WorkerPool"))
-            if version >= 4:
-                self.assertTrue(hasattr(serving, "report"))
-
 
 class PoolTests(unittest.IsolatedAsyncioTestCase):
     async def test_overload_and_cancel_release_worker(self):

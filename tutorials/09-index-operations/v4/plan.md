@@ -1,7 +1,7 @@
 # 索引更新与运行成本 v4：质量成本联合报告
 
-状态：verified。`labs.operations.benchmark` 已输出冷/暖缓存质量、p50/p95、失败率、成本字段和删除可见延迟。
-重放命令：`uv run python -c "from labs.operations.checkpoints.v4.benchmark import run; print(run)"`。
+参考状态：verified。仅表示预写参考材料的验证记录；你的实现进度单独记录在 [个人进度](../../../docs/progress.md)。参考代码位于 `reference/labs/`，重放命令见 [参考区](../../../reference/README.md)；本版手写目标仍是 `labs/`，按 [正文](tutorial.md) 构建。
+重放命令：`PYTHONPATH=reference uv run python -P -c "from labs.operations.checkpoints.v4.benchmark import run; print(run)"`。
 
 ## 本版写作任务
 
@@ -10,7 +10,7 @@
 - 当前缺口：优化提高吞吐却丢失证据质量。
 - 必要改变：固定负载比较质量、延迟和成本。
 - 验收及验证：报告 QPS、p50/p95、失败率与召回；注明硬件、缓存和并发设置。
-- 正文目标：本目录 `tutorial.md`；代码目标：`labs/operations/`；验证目标：`tests/operations/`。
+- 正文目标：本目录 `tutorial.md`；代码目标：`labs/operations/`；验证目标：`tests/test_operations.py`。
 - 代码角色：patch，正文末尾提供该版完整 checkpoint。
 - 预计范围：一个版本；若实现需要多个独立机制，应先拆为多个写作任务。
 - 提交策略：规划阶段不提交检查点；正文和实现通过复验后再保存版本 commit。

@@ -26,7 +26,7 @@ def quality(ids, gold, k=3):
 
 
 def run(output: Path, *, split: str = "heldout") -> dict:
-    root = Path(__file__).resolve().parents[3]
+    root = Path.cwd()
     documents = [
         Document(**record)
         for record in json.loads((root / "fixtures/hybrid/corpus.json").read_text(encoding="utf-8"))

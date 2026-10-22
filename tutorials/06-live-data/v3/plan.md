@@ -1,6 +1,6 @@
 # SQL 与业务 API v3：实时与历史结合
 
-状态：verified。正文、历史 checkpoint 和测试已实现；运行 `uv run python -m pytest -q tests/test_live_data.py -k v3` 验证，本版覆盖结果记录在专题 README（2026-10-16）。
+参考状态：verified。仅表示预写参考材料的验证记录；你的实现进度单独记录在 [个人进度](../../../docs/progress.md)。参考代码位于 `reference/labs/`，重放命令见 [参考区](../../../reference/README.md)；本版手写目标仍是 `labs/`，按 [正文](tutorial.md) 构建。
 
 ## 本版写作任务
 
@@ -9,7 +9,7 @@
 - 当前缺口：问库存是否符合手册中的备货要求。
 - 必要改变：合并带时间与来源的两类证据。
 - 验收及验证：过期数据与来源冲突显式说明；禁止无依据拼接。
-- 正文目标：本目录 `tutorial.md`；代码目标：`labs/live_data/`；验证目标：`tests/live_data/`。
+- 正文目标：本目录 `tutorial.md`；代码目标：`labs/live_data/`；验证目标：`tests/test_live_data.py`。
 - 代码角色：patch，正文末尾提供该版完整 checkpoint。
 - 预计范围：一个版本；若实现需要多个独立机制，应先拆为多个写作任务。
 - 提交策略：规划阶段不提交检查点；正文和实现通过复验后再保存版本 commit。
