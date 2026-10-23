@@ -1,40 +1,92 @@
-# v0：单次检索回答
+# Agent 检索循环 v0：一次真实检索与可核对回答
 
-## 你要手动构建的部分
+前置：04 v4、05 v3、06 v3，后续复用 02 的代码读取。用户问错误码时，先建立一个最小可信基线：执行一次调用者选好的工具，从返回证据中摘取文本并附引用；没有证据就拒答。本专题先用确定性规划器讲运行机制，不调用 LLM。
 
-创建空的 `labs/agent/__init__.py`，在 `labs/agent/loop.py` 手写本版的 `Evidence`、`Tool`、回答结果类型与 `answer_once`；`labs/__init__.py` 若尚不存在也创建为空文件。下面是调用示例，完整类和函数可对照参考文件逐段实现。先用固定工具运行示例，检查后按[学习流程](../../../docs/learning-workflow.md)保存自己的 v0。
+全部命令从仓库根目录执行，使用你自己的 `labs/`，沿用 `uv sync --locked` 安装的环境。检查通过后按[学习流程](../../../docs/learning-workflow.md)保存自己的版本。
 
-用户已经能手工看到检索结果，但知识助手必须给出一个可核验的结论。最小压力是：一次查询找到错误码说明时，回答应携带来源；查不到时，应明确拒答。
+## 1. 让工具返回证据，而不是自称成功
 
-## 把问题压缩到一次工具调用
-
-本版不引入模型、不让答案自由编造，也不支持多轮。工具的唯一输出是 `Evidence(source_id, text)`，`answer_once` 只选择第一条证据并把所有证据的身份转为引用。它有两个可观察结果：`answered` 和 `no_evidence`。
-
-```python
-from labs.agent.loop import Evidence, Tool, answer_once
-
-search = Tool(
-    "search",
-    lambda arguments: (Evidence("errors@v1:line:2", "E104 means connection timeout."),)
-    if arguments["query"] == "E104" else (),
-)
-answer = answer_once("E104", search, {"query": "E104"})
-assert answer.answerable
-assert answer.citations == ("errors@v1:line:2",)
-```
-
-如果工具返回空元组，`answer_once` 返回说明性拒答而不是空字符串。这个检查点建立了最小回答契约：有证据才回答，引用来自工具结果。
-
-## 代码变更和检查
-
-这是从调用者输入开始的 `checkpoint`，完整参考文件在 [v0/loop.py](../../../reference/labs/agent/checkpoints/v0/loop.py)。它刻意把工具函数作为参数传入，调用者可以用固定函数重放，不需要网络凭据。你的 v0 先运行上面的固定工具例子；以下只回放参考主线的相关测试，其测试文件需要最终 API：
+Evidence 保存来源 ID 与原文，Tool 保存工具名和接收参数映射的函数；AgentAnswer 明确 answerable 与停止原因。answer_once 检查问题非空，执行一次工具，结果为空返回 no_evidence。这里回答只摘取第一条原文，引用来自实际工具结果。本版使用固定单版本语料，引用暂时只保存 ID；v1 接多种来源时再加入版本和定位信息。
 
 ```bash
-PYTHONPATH=reference uv run python -P -m pytest --import-mode=importlib -q tests/test_agent.py -k 'single_tool_answer or no_evidence'
+mkdir -p labs/agent
+touch labs/__init__.py labs/agent/__init__.py
 ```
 
-这两个测试证明正常和无答案路径。它们没有证明工具本身检索质量，也没有证明引用的行范围存在；那属于前面评测专题和后续版本的边界。
+这两个 `__init__.py` 是空的包文件；已有文件保留，下面才开始实现本版行为。
 
-## 仍然缺什么
+`labs/agent/loop.py` — checkpoint：将这个文件完整写为下面的代码。
 
-所有问题都只能交给一个已选工具，工具参数也没有公开契约。错误码、手册和库存需要不同的输入。下一版只增加工具名称、描述和显式参数，先让选择行为可观察。
+```python
+"""Standalone v0 checkpoint: one tool call, or a refusal."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Callable, Mapping
+
+
+@dataclass(frozen=True)
+class Evidence:
+    source_id: str
+    text: str
+
+    @property
+    def citation(self) -> str:
+        return self.source_id
+
+
+@dataclass(frozen=True)
+class Tool:
+    name: str
+    run: Callable[[Mapping[str, object]], tuple[Evidence, ...]]
+
+
+@dataclass(frozen=True)
+class AgentAnswer:
+    answerable: bool
+    text: str
+    citations: tuple[str, ...]
+    stop_reason: str
+
+
+def answer_once(question: str, tool: Tool, arguments: Mapping[str, object]) -> AgentAnswer:
+    if not question.strip():
+        raise ValueError("question must be nonempty")
+    evidence = tool.run(arguments)
+    if not evidence:
+        return AgentAnswer(False, "The allowed sources do not answer this question.", (), "no_evidence")
+    first = evidence[0]
+    return AgentAnswer(True, first.text, tuple(item.citation for item in evidence), "answered")
+```
+
+```bash
+uv run python - <<'PY'
+from labs.agent.loop import Evidence, Tool, answer_once
+from labs.hybrid.retrieval import Document, bm25_rank
+
+docs = [Document("error", "E104 means connection timeout"),
+        Document("other", "refund rules")]
+def search(arguments):
+    return tuple(Evidence(hit.document.id, hit.document.text)
+                 for hit in bm25_rank(docs, arguments["query"]))
+
+tool = Tool("bm25_search", search)
+answer = answer_once("E104", tool, {"query": "E104"})
+assert answer.answerable and answer.citations == ("error",)
+assert answer.text == "E104 means connection timeout"
+missing = answer_once("unknown", tool, {"query": "unmentioned"})
+assert not missing.answerable and missing.stop_reason == "no_evidence"
+assert missing.citations == ()
+print(answer.text, answer.citations)
+print(missing.stop_reason)
+PY
+```
+
+预期显示错误码原文、引用 error，以及 no_evidence。这里确实调用了 04 的 BM25；不是预先拼好答案。工具异常目前向上传播，预算和统一错误停止留到 v3。
+
+## 本版检查点
+
+loop.py 中 Evidence、Tool、AgentAnswer 和 answer_once 构成完整 v0。它不会自己选工具，也不能判断多条证据是否回答完整；下一版把选择变成 ToolCall 数据交给运行时执行。
+
+需要对照时可阅读[本版参考源码](../../../reference/labs/agent/checkpoints/v0/loop.py)。自己的检查必须在 `labs/` 上通过；参考答案不会更新个人进度。
