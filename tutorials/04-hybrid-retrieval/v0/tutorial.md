@@ -1,37 +1,95 @@
-# 混合检索 v0：先建立 BM25 基线
+# 混合检索 v0：建立可解释的 BM25 基线
 
-## 你要手动构建的部分
+前置：01 v2 的评测概念和 03 v3 的来源标识。用户搜 `E104` 时，我们希望包含错误码的块排在前面；只数共同词会忽略词频与文档长度。本版在固定的 `Document` 列表上使用 BM25Plus，输出带来源的排名。这里不加载模型，也不把排名等同于答案。
 
-在仓库根目录操作，先读[学习流程](../../../docs/learning-workflow.md)。创建空的 `labs/hybrid/__init__.py`，在自己的 `labs/hybrid/retrieval.py` 中实现 `Document`、`Hit`、tokenizer 和 `bm25_rank`；`labs/__init__.py` 若尚不存在也创建为空文件。本版只写词法检索。下面是调用示例，不是完整文件；函数定义在完整参考文件 [`retrieval.py`](../../../reference/labs/hybrid/retrieval.py) 中，按需要对照后自己编写。参考回放通过不代表你的实现完成。
+全部命令从仓库根目录执行，使用你自己的 `labs/`，沿用 `uv sync --locked` 安装的环境。检查通过后按[学习流程](../../../docs/learning-workflow.md)保存自己的版本。
 
-## 场景
+## 1. 从有出处的文档计算词法排名
 
-技术助手收到 `E104`、`refund` 或一段中文问题，需要从一组版本固定的文档块中返回候选证据。这个版本只回答“哪些文本包含查询词”，不生成答案，也不假装语义理解已经解决。
-
-## 从零开始
-
-最直接的做法是数词频。只按出现次数排序会让长文档占便宜；同一个词在短文档中出现一次，往往比在很长的日志里出现三次更有区分度。BM25 保留词频，同时用逆文档频率和长度归一化修正这两个压力。
-
-```python
-from labs.hybrid.retrieval import Document, bm25_rank
-
-documents = [
-    Document("error", "E104 connection timeout while opening a socket"),
-    Document("policy", "Refund reimbursement is available within seven days"),
-]
-for hit in bm25_rank(documents, "E104"):
-    print(hit.document.id, round(hit.score, 3), hit.sources)
-```
-
-`bm25_rank` 使用固定 tokenizer，返回 `Hit(document, score, sources)`。分数只在同一次查询、同一套参数内比较；不要把它和向量分数直接相加。
-
-## 检查与冻结
-
-参考回放入口位于 [`reference/labs/hybrid/checkpoints/v0_bm25.py`](../../../reference/labs/hybrid/checkpoints/v0_bm25.py)，它导入完整参考模块中的 BM25，并非包含所有定义的独立早期版本。以下命令只回放参考答案；你自己的 v0 用上面的调用例子验收，不提前运行需要最终 API 的整份测试：
+`Document.id` 是这批语料中的唯一证据身份，`topic` 只供分组；`Hit` 保存文档、内部得分和检索来源。分词器把英文数字标记转小写、中文逐字切分，使精确码保留下来。`bm25_rank` 调用库的 BM25Plus；k1 控制词频饱和，b 控制长度归一化。零词项命中的文档被过滤，避免 BM25Plus 的平滑分数被误当成召回证据。
 
 ```bash
-PYTHONPATH=reference uv run python -P -m labs.hybrid.checkpoints.v0_bm25
-PYTHONPATH=reference uv run python -P -m pytest --import-mode=importlib -q tests/test_hybrid.py reference/tests/test_hybrid_checkpoints.py -k 'bm25 or v0'
+mkdir -p labs/hybrid
+touch labs/__init__.py labs/hybrid/__init__.py
 ```
 
-结果必须把 `e104` 排在第一位。再用中文查询和空查询观察 tokenizer 的边界。这个检查点能提供可复现的词项基线，仍无法找到只在改写词中表达的证据；v1 将增加独立的向量对照。
+这两个 `__init__.py` 是空的包文件；已有文件保留，下面才开始实现本版行为。
+
+`labs/hybrid/retrieval.py` — checkpoint：将这个文件完整写为下面的代码。
+
+```python
+from __future__ import annotations
+
+from dataclasses import dataclass
+import re
+from typing import Sequence
+
+from rank_bm25 import BM25Plus
+
+TOKEN_RE = re.compile(r"[A-Za-z0-9_]+|[一-鿿]")
+
+
+@dataclass(frozen=True)
+class Document:
+    id: str
+    text: str
+    topic: str = ""
+
+
+@dataclass(frozen=True)
+class Hit:
+    document: Document
+    score: float
+    sources: tuple[str, ...] = ()
+
+
+def tokenize(text: str) -> list[str]:
+    """Use one stable tokenizer for every lexical measurement."""
+    return [token.lower() for token in TOKEN_RE.findall(text)]
+
+
+def bm25_rank(documents: Sequence[Document], query: str, *, k1: float = 1.5, b: float = 0.75) -> list[Hit]:
+    if k1 < 0 or not 0 <= b <= 1:
+        raise ValueError("invalid BM25 parameters")
+    terms = tokenize(query)
+    if not terms or not documents:
+        return []
+    tokenized = [tokenize(doc.text) for doc in documents]
+    if not any(tokenized):
+        return []
+    scores = BM25Plus(tokenized, k1=k1, b=b).get_scores(terms)
+    scored = [Hit(doc, float(score), ("bm25",)) for doc, tokens, score in zip(documents, tokenized, scores) if set(tokens) & set(terms)]
+    return sorted(scored, key=lambda hit: (-hit.score, hit.document.id))
+```
+
+排序采用分数降序、ID 升序，同分输入也有稳定结果。空查询、空语料以及全部无词项的语料返回空列表；不合法的 k1/b 报错。这个函数不读取文件、不修改输入。调用者负责把 03 的块文本和稳定标识装入 Document。
+
+```bash
+uv run python - <<'PY'
+from labs.hybrid.retrieval import Document, bm25_rank, tokenize
+
+docs = [Document("error", "E104 socket timeout"),
+        Document("refund", "退款七天内可申请"),
+        Document("other", "delivery options")]
+assert tokenize("E104") == ["e104"]
+assert bm25_rank(docs, "E104")[0].document.id == "error"
+assert bm25_rank(docs, "退款")[0].document.id == "refund"
+assert bm25_rank(docs, "") == []
+assert bm25_rank(docs, "unmentioned") == []
+assert bm25_rank([], "E104") == []
+try:
+    bm25_rank(docs, "E104", b=2)
+except ValueError:
+    print("BM25 exact, Chinese and boundary checks passed")
+else:
+    raise AssertionError("invalid b accepted")
+PY
+```
+
+预期打印 `BM25 exact, Chinese and boundary checks passed`。中文例子只证明分词路径接通，不证明自然语言理解质量。
+
+## 本版检查点
+
+当前完整文件包含 Document、Hit、tokenize 和 bm25_rank。保留它作为后续对照：`network deadline` 与 `socket timeout` 可能没有共同词。下一版增加向量相似度；现有 `tests/test_hybrid.py` 导入最终 API，留到 v3 再整份执行。
+
+需要对照时可阅读[本版参考源码](../../../reference/labs/hybrid/checkpoints/v0_bm25.py)。自己的检查必须在 `labs/` 上通过；参考答案不会更新个人进度。
