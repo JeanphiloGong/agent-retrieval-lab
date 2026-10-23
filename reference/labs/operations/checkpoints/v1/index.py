@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from collections import OrderedDict
 import json
 import math
 from pathlib import Path
 import sqlite3
-from typing import Callable, Sequence
+from typing import Sequence
 
 from labs.access.control import Identity
 from labs.hybrid.retrieval import Document, vector_rank

@@ -88,5 +88,5 @@ class PoolTests(unittest.IsolatedAsyncioTestCase):
             await pool.submit(fail)
         async def success():
             return 7
-        self.assertEqual(await pool.submit(success), 7)
+        self.assertEqual(await asyncio.wait_for(pool.submit(success), timeout=1), 7)
         await pool.close()

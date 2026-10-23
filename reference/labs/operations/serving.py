@@ -40,7 +40,8 @@ class WorkerPool:
                         future.cancel()
                 except Exception as exc:
                     if not future.done():
-                        future.set_exception(exc)
+                        # Keep operation frames without exposing the live worker frame.
+                        future.set_exception(exc.with_traceback(exc.__traceback__.tb_next))
             finally:
                 self.queue.task_done()
 
