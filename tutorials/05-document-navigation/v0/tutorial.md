@@ -1,47 +1,174 @@
-# 长文档导航 v0：先保留文档树
+# 长文档导航 v0：保存目录与原文位置
 
-## 你要手动构建的部分
+前置：03 v3 的来源/版本契约与 04 v2 的检索能力。分块能找到一句话，但安装限制可能藏在附录。本版先把 Markdown 变成有顺序、父子关系和精确范围的目录。输入是原始字符串，输出是 Section 列表；只支持 ATX 标题与围栏代码，不宣称实现完整 Markdown 规范。
 
-先读[学习流程](../../../docs/learning-workflow.md)。创建空的 `labs/navigation/__init__.py`，在 `labs/navigation/navigation.py` 手写 `Section` 与 `document_tree`；`labs/__init__.py` 若尚不存在也创建为空文件。以下文字与实验解释实现契约，完整函数需对照参考 checkpoint 理解后逐步写入自己的文件。下面例子导入你的代码；参考源码与参考回放不会计入个人进度。
+全部命令从仓库根目录执行，使用你自己的 `labs/`，沿用 `uv sync --locked` 安装的环境。检查通过后按[学习流程](../../../docs/learning-workflow.md)保存自己的版本。
 
-前置是 03 v3 的来源版本和 04 v2 的召回结果。离散块可以找到一段话，却无法回答“这份安装手册有哪些章节，哪些限制属于安装条件”。本版以固定的 `fixtures/navigation/manual-v1.md` 为输入，保留章节顺序、父子关系与原文范围。
+## 1. 定义节点并扫描真实标题
 
-实现文件是 `labs/navigation/navigation.py`。本版完整参考源码保存在 `reference/labs/navigation/checkpoints/v0/navigation.py`，仅含标题解析，不依赖之后的检索、读取或组合能力；不要提前把后续 API 加入自己的 v0。
+`start_line/end_line` 是从 1 开始、包含端点的章节范围，包含后代。`own_end_line` 只到下一个标题之前，text 只保留自己的正文，防止父节点重复获得子节点的检索分数。字符偏移是 Python 字符索引，不是 UTF-8 字节数。`_line_offsets` 把行长度累加，用于将行边界转换成原文切片。
 
-## 1. 把标题变成可定位节点
+```bash
+mkdir -p labs/navigation
+touch labs/__init__.py labs/navigation/__init__.py
+```
 
-`Section` 有 `id`、标题、标题级别、父节点和子节点。`start_line` 从标题行开始，`end_line` 到同级或更高级标题之前；子章节属于父章节范围。`own_end_line` 则只到下一个任意标题之前，避免之后检索时把全部后代文字重复计入父节点。
+这两个 `__init__.py` 是空的包文件；已有文件保留，下面才开始实现本版行为。
 
-它还保存 `source_id`、`source_version`、内容摘要与字符偏移。偏移量采用 Python 字符索引，不是 UTF-8 字节数；`text[start_offset:end_offset]` 必须等于该章节包含后代的原文。内容摘要用于拒绝后续拿旧节点读取修改后的文本。
+扫描时先识别围栏，围栏内的 `#` 是代码数据。每个新标题弹出同级或更深的栈元素，冻结它们的结束位置；剩余栈顶就是父节点。无标题非空文档生成 Document 节点，标题前文字生成 preamble，空文档返回空列表。顺序 ID 使重复标题不会互相覆盖。
 
-## 2. 顺序扫描标题与围栏
+`labs/navigation/navigation.py` — checkpoint：将这个文件完整写为下面的代码。
 
-朴素的 `line.startswith('#')` 会把 Markdown 代码示例里的标题误当章节。`document_tree()` 先识别最多三格缩进的反引号或波浪号围栏；围栏内所有行都作为内容。只有围栏外的 ATX 标题才进入树。维护一个标题栈：新标题到来时，弹出同级或更深节点并冻结它们的结束位置，栈顶就是父节点。
+```python
+from __future__ import annotations
 
-重复标题保留不同顺序 ID，不以标题文字作为唯一键。无标题且非空的文档返回一个 `level=0` 的 `Document` 节点；标题前的文字保留为 `preamble` 节点；空文档返回空列表。这三个行为避免把“没有标题”误当“没有可读材料”。
+import hashlib
+import re
+from dataclasses import dataclass, field
+from typing import Sequence
 
-## 3. 运行固定输入
+
+@dataclass
+class Section:
+    id: str
+    title: str
+    level: int
+    start_line: int
+    end_line: int
+    parent: str | None = None
+    children: list[str] = field(default_factory=list)
+    text: str = ""
+    own_end_line: int = 0
+    start_offset: int = 0
+    end_offset: int = 0
+    source_id: str = "markdown"
+    source_version: str = ""
+    source_digest: str = ""
+
+
+def _line_offsets(lines: Sequence[str]) -> list[int]:
+    offsets = [0]
+    for line in lines:
+        offsets.append(offsets[-1] + len(line))
+    return offsets
+
+
+def document_tree(
+    text: str,
+    *,
+    source_id: str = "markdown",
+    source_version: str | None = None,
+) -> list[Section]:
+    """Build ordered sections without treating fenced examples as headings."""
+
+    if not source_id or source_version == "":
+        raise ValueError("source metadata must be nonempty")
+    lines = text.splitlines(keepends=True)
+    if not lines:
+        return []
+    digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
+    version = source_version or digest
+    offsets = _line_offsets(lines)
+    headings: list[tuple[int, int, str]] = []
+    fence_char: str | None = None
+    fence_length = 0
+    for line_number, raw_line in enumerate(lines, start=1):
+        line = raw_line.rstrip("\r\n")
+        fence = re.match(r"^ {0,3}(`{3,}|~{3,})(.*)$", line)
+        if fence_char:
+            closing = re.match(rf"^ {{0,3}}{re.escape(fence_char)}{{{fence_length},}}[ \t]*$", line)
+            if closing:
+                fence_char = None
+            continue
+        if fence:
+            marker, info = fence.groups()
+            if marker[0] != "`" or "`" not in info:
+                fence_char, fence_length = marker[0], len(marker)
+            continue
+        match = re.match(r"^ {0,3}(#{1,6})(?:[ \t]+(.*)|[ \t]*)$", line)
+        if match:
+            title = re.sub(r"[ \t]+#+[ \t]*$", "", match.group(2) or "").strip()
+            headings.append((line_number, len(match.group(1)), title))
+
+    if not headings:
+        return [Section("s1", "Document", 0, 1, len(lines), text=text,
+                        own_end_line=len(lines), end_offset=len(text),
+                        source_id=source_id, source_version=version, source_digest=digest)]
+
+    sections: list[Section] = []
+    stack: list[Section] = []
+    if headings[0][0] > 1 and any(line.strip() for line in lines[:headings[0][0] - 1]):
+        end = headings[0][0] - 1
+        sections.append(Section("preamble", "Preamble", 0, 1, end,
+                                text="".join(lines[:end]), own_end_line=end,
+                                end_offset=offsets[end], source_id=source_id,
+                                source_version=version, source_digest=digest))
+    for number, (start, level, title) in enumerate(headings):
+        while stack and stack[-1].level >= level:
+            previous = stack.pop()
+            previous.end_line = start - 1
+            previous.end_offset = offsets[start - 1]
+        parent = stack[-1] if stack else None
+        own_end = headings[number + 1][0] - 1 if number + 1 < len(headings) else len(lines)
+        section = Section(
+            f"s{number + 1}", title, level, start, len(lines),
+            parent.id if parent else None,
+            text="".join(lines[start:own_end]), own_end_line=own_end,
+            start_offset=offsets[start - 1], end_offset=len(text),
+            source_id=source_id, source_version=version, source_digest=digest,
+        )
+        if parent:
+            parent.children.append(section.id)
+        sections.append(section)
+        stack.append(section)
+    return sections
+```
+
+调用者给出 source_version，未给出时使用文本 SHA-256；source_digest 始终保存实际内容摘要。后续读取会验证摘要，避免旧节点指向已修改的文本。文档树只是来源定位，尚未选择证据。
 
 ```bash
 uv run python - <<'PY'
 from pathlib import Path
 from labs.navigation.navigation import document_tree
 
-text = Path('fixtures/navigation/manual-v1.md').read_text()
-for section in document_tree(text, source_id='manual', source_version='v1'):
-    print(section.id, section.title, section.start_line, section.end_line,
-          section.parent, section.children)
+text = Path("fixtures/navigation/manual-v1.md").read_text()
+sections = document_tree(text, source_id="manual", source_version="v1")
+assert [s.title for s in sections] == ["Installation Manual", "Install", "Appendix", "Free plan limits", "Examples"]
+assert (sections[1].start_line, sections[1].end_line) == (3, 6)
+assert sections[3].parent == sections[2].id
+assert sections[3].id in sections[2].children
+assert document_tree("") == []
+assert document_tree("plain text")[0].title == "Document"
+assert document_tree("intro\n# Title\n")[0].id == "preamble"
+for s in sections:
+    assert s.start_offset < s.end_offset
+print([(s.id, s.title, s.parent) for s in sections])
 PY
 ```
 
-输出顺序是 `Installation Manual`、`Install`、`Appendix`、`Free plan limits`、`Examples`。样例第 16–17 行的 `# This is not a real chapter` 和 `## Neither is this` 不出现在目录中。`Install` 范围是第 3–6 行，附录范围包含第 9 行的限制子章节。
+预期五个节点，代码示例中的假标题不出现在目录。Install 覆盖 3–6 行，限制节点属于 Appendix。
 
-用同样的调用方式补测无标题、前言、重复标题和围栏。四空格缩进代码中的 `#` 不应成为标题，`C#` 中的末尾 `#` 不应被当作关闭标记删除。以下命令只回放参考答案的相关验收；测试文件导入最终 API，不能在你的 v0 上整份运行：
+## 2. 验证围栏和重复标题边界
+
+标题字符串不能充当唯一键；四空格缩进中的 `#` 也不能成为节点。用小输入检验扫描器状态，错误最容易在这里暴露。
 
 ```bash
-PYTHONPATH=reference uv run python -P -m pytest --import-mode=importlib -q tests/test_navigation.py -k 'tree_preserves or no_heading or fenced'
+uv run python - <<'PY'
+from labs.navigation.navigation import document_tree
+
+text = "# Root\n```md\n# fake\n```\n~~~\n## also fake\n~~~~\n    # code\n## C#\n## Same\n## Same\n"
+sections = document_tree(text)
+assert [s.title for s in sections] == ["Root", "C#", "Same", "Same"]
+assert sections[-1].id != sections[-2].id
+assert [s.start_line for s in sections] == [1, 9, 10, 11]
+print("fences and duplicate titles passed")
+PY
 ```
 
-本版的个人检查应覆盖上述目录边界，不能用参考答案通过代替。本解析器支持 ATX 标题和围栏代码；没有实现 Setext 标题、HTML 块和 Markdown 全语法。需要任意来源文档时应接入完整 Markdown 解析器并继续保留相同的范围契约。
+预期打印 `fences and duplicate titles passed`。Setext 标题、HTML 块和 PDF 版面不在此解析器范围内。
 
-本版冻结结构和来源位置，尚不知道该打开哪个节点。下一版使用节点自身的标题与正文做确定性定位。
+## 本版检查点
+
+完整 navigation.py 包含 Section、_line_offsets、document_tree。下一版在节点自己的标题/正文上定位问题。最终测试模块导入后续 API，此时只执行本页实验。
+
+需要对照时可阅读[本版参考源码](../../../reference/labs/navigation/checkpoints/v0/navigation.py)。自己的检查必须在 `labs/` 上通过；参考答案不会更新个人进度。

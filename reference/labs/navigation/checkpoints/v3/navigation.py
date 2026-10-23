@@ -108,17 +108,6 @@ def document_tree(
     return sections
 
 
-def parse_markdown(
-    text: str,
-    *,
-    source_id: str = "markdown",
-    source_version: str | None = None,
-) -> list[Section]:
-    """Public name retained for callers that used the original parser API."""
-
-    return document_tree(text, source_id=source_id, source_version=source_version)
-
-
 def _terms(text: str) -> set[str]:
     return {term.lower() for term in re.findall(r"[A-Za-z0-9_]+|[\u4e00-\u9fff]", text)}
 
@@ -151,12 +140,6 @@ class RangeRead:
     start_offset: int
     end_offset: int
     truncated: bool
-
-    def __iter__(self):
-        """Allow old ``quote, truncated = read_range(...)`` call sites."""
-
-        yield self.quote
-        yield self.truncated
 
 
 def read_range(

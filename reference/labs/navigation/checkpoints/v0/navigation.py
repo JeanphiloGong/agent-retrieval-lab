@@ -106,14 +106,3 @@ def document_tree(
         sections.append(section)
         stack.append(section)
     return sections
-
-
-def parse_markdown(
-    text: str,
-    *,
-    source_id: str = "markdown",
-    source_version: str | None = None,
-) -> list[Section]:
-    """Public name retained for callers that used the original parser API."""
-
-    return document_tree(text, source_id=source_id, source_version=source_version)

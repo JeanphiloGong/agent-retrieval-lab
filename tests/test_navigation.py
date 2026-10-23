@@ -10,7 +10,6 @@ from labs.navigation.navigation import (
     document_tree,
     find_sections,
     read_range,
-    parse_markdown,
 )
 
 
@@ -37,7 +36,6 @@ class FixtureEmbedding:
 class NavigationTests(unittest.TestCase):
     def test_tree_preserves_parent_and_order(self):
         sections = document_tree(TEXT)
-        self.assertEqual(parse_markdown(TEXT)[1].title, "Install")
         self.assertEqual([section.title for section in sections], ["Manual", "Install", "Appendix", "Limits"])
         self.assertEqual(sections[0].children, ["s2", "s3"])
         self.assertEqual(sections[1].end_line, 4)
@@ -69,8 +67,6 @@ class NavigationTests(unittest.TestCase):
     def test_range_reports_actual_truncated_offsets(self):
         section = document_tree(TEXT)[0]
         result = read_range(TEXT, section, max_lines=2)
-        quote, truncated = result
-        self.assertEqual((quote, truncated), (result.quote, result.truncated))
         self.assertTrue(result.truncated)
         self.assertEqual(result.end_line, 2)
         self.assertEqual(result.quote, "# Manual\n## Install\n")

@@ -1,42 +1,64 @@
-# 长文档导航 v1：定位节点而不是直接回答
+# 长文档导航 v1：找出值得读取的节点
 
-## 你要手动构建的部分
+从自己的 v0 继续。目录已经保留，但问题“免费计划能否安装版本 3”可能需要附录。增加一个透明的词项定位器，先给出候选节点，尚不返回答案。
 
-从自己的 v0 Git 检查点继续，在 `labs/navigation/navigation.py` 增加 `_terms` 与 `find_sections`，保留已有树结构和来源范围。以下示例应导入你的主线模块；完整参考 checkpoint 只供理解未展开的函数。按[学习流程](../../../docs/learning-workflow.md)运行本版实验后再提交。
+全部命令从仓库根目录执行，使用你自己的 `labs/`，沿用 `uv sync --locked` 安装的环境。检查通过后按[学习流程](../../../docs/learning-workflow.md)保存自己的版本。
 
-v0 保留了手册目录，但“免费计划是否能安装版本 3”仍可能被 `Install` 标题吸引而漏掉附录。本版增加 `_terms()` 与 `find_sections()`，在节点标题和节点自身正文上建立透明的词项检索入口。输入仍为同一份手册，不新增摘要生成模型。
+## 1. 只给节点自身的词项计分
 
-完整检查点是 `reference/labs/navigation/checkpoints/v1/navigation.py`，在 v0 完整源码之后新增两个函数；此前函数保持一致。节点的 `text` 保留自己的正文，不把后代再次复制到父节点，所以同一句限制不会让根节点、附录和限制节点同时获得相同匹配。
+`_terms` 提取英文标记和中文单字，转小写集合。`find_sections` 以标题与节点自身正文的词项交集大小评分，过滤零匹配。排序按分数、深度、来源、版本、起始行，保证并列结果稳定。输入节点不修改，结果仍带原来的版本和范围。
 
-## 1. 用具体问题观察结果
+`labs/navigation/navigation.py` — patch：在现有导入之后加入下面的导入；不要重复已有项。
+
+```python
+from typing import Iterable
+```
+
+`labs/navigation/navigation.py` — patch：将下面的完整定义追加到文件末尾，已有定义保留。
+
+```python
+def _terms(text: str) -> set[str]:
+    return {term.lower() for term in re.findall(r"[A-Za-z0-9_]+|[\u4e00-\u9fff]", text)}
+
+
+def find_sections(sections: Iterable[Section], query: str) -> list[Section]:
+    """Rank a node's own title/body; descendants do not inflate parent scores."""
+
+    terms = _terms(query)
+    if not terms:
+        return []
+    ranked: list[tuple[int, Section]] = []
+    for section in sections:
+        score = len((_terms(section.title) | _terms(section.text)) & terms)
+        if score:
+            ranked.append((score, section))
+    ranked.sort(key=lambda item: (-item[0], -item[1].level,
+                                  item[1].source_id, item[1].source_version,
+                                  item[1].start_line))
+    return [section for _, section in ranked]
+```
 
 ```bash
 uv run python - <<'PY'
 from pathlib import Path
 from labs.navigation.navigation import document_tree, find_sections
 
-text = Path('fixtures/navigation/manual-v1.md').read_text()
-sections = document_tree(text, source_id='manual', source_version='v1')
-for section in find_sections(sections, 'free plan'):
-    print(section.id, section.title, section.start_line)
-print(find_sections(sections, 'unmentioned'))
+text = Path("fixtures/navigation/manual-v1.md").read_text()
+sections = document_tree(text, source_id="manual", source_version="v1")
+hits = find_sections(sections, "free plan")
+assert hits[0].title == "Free plan limits"
+assert hits[0].start_line == 9
+assert find_sections(sections, "unmentioned") == []
+assert find_sections(sections, "") == []
+assert "Version 3 can be installed" not in sections[0].text
+print(hits[0].id, hits[0].title, hits[0].start_line)
 PY
 ```
 
-第一条返回 `s4 Free plan limits 9`，第二条返回 `[]`。这只是“值得读取的节点”，不是“答案已得到确认”。标题写着 `Free plan limits` 并不说明限制到底是什么，仍须读取原文第 9–12 行。
+预期 `s4 Free plan limits 9`。这说明应读哪里；还没有读取限制原文，也不证明回答完整。
 
-## 2. 保持排序可解释
+## 本版检查点
 
-`_terms()` 将英文词、小写字母数字标记与中文单字转成集合。`find_sections()` 统计查询与节点词项交集大小，过滤零命中，然后按分数、节点深度、来源、版本与起始行稳定排序。分数只是这个定位器的内部排序值，不能拿它与 BM25 或向量余弦分数直接相加。
+保留 v0，追加 _terms 与 find_sections 即为本版文件。当前定位只能识别词面重合，下一版把节点转换成有预算的可核对引文。
 
-空查询与无命中均返回空列表，因为没有足够词项定位；文件解析错误不在这里处理，调用者应先成功构建 v0 的树。中文单字切分仅为本地可重放基线，不能据此宣称中文检索质量达标。
-
-## 3. 检查结果与来源的关系
-
-`find_sections()` 不改写节点和原文；每个结果仍带着 v0 的 `source_id`、版本、行范围和内容摘要。用自己的例子确认附录限制排在首位，根节点正文不包含安装子章节的文字。以下只回放参考答案的对应测试，个人 v1 不需要实现未来 API：
-
-```bash
-PYTHONPATH=reference uv run python -P -m pytest --import-mode=importlib -q tests/test_navigation.py -k find_section
-```
-
-当前检索只表达词面重合，不能可靠处理同义改写，也没有证明检索结果支持一个回答。下一版通过有预算、可定位的原文读取把候选变成证据；v3 再与 04 的混合检索比较。
+需要对照时可阅读[本版参考源码](../../../reference/labs/navigation/checkpoints/v1/navigation.py)。自己的检查必须在 `labs/` 上通过；参考答案不会更新个人进度。

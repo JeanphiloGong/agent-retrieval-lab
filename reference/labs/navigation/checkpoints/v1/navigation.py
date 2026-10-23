@@ -108,17 +108,6 @@ def document_tree(
     return sections
 
 
-def parse_markdown(
-    text: str,
-    *,
-    source_id: str = "markdown",
-    source_version: str | None = None,
-) -> list[Section]:
-    """Public name retained for callers that used the original parser API."""
-
-    return document_tree(text, source_id=source_id, source_version=source_version)
-
-
 def _terms(text: str) -> set[str]:
     return {term.lower() for term in re.findall(r"[A-Za-z0-9_]+|[\u4e00-\u9fff]", text)}
 
